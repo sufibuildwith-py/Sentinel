@@ -1,0 +1,22 @@
+Title: Database CPU spike causing query timeouts
+Date: 2025-09-14
+Severity: High
+
+Summary:
+Database CPU usage jumped from a normal 30% to 95%+ over 10 minutes.
+API requests across multiple services began timing out because queries
+were queued waiting for available connections.
+
+Root cause:
+A new analytics job was accidentally scheduled to run during peak traffic
+hours instead of off-peak. It ran several unindexed full-table scans on
+a large table, saturating CPU and starving the connection pool.
+
+Fix:
+Killed the analytics job manually to restore service. Rescheduled it to
+run at 3am instead. Added a missing index to the table it was scanning.
+
+How to recognize this pattern:
+Sudden CPU spike with no corresponding traffic spike is suspicious - check
+for scheduled jobs/cron tasks that may have started around the same time,
+not just recent code deploys.

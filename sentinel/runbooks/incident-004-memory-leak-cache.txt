@@ -1,0 +1,22 @@
+Title: Gradual memory leak causing nightly restarts
+Date: 2025-08-22
+Severity: Medium
+
+Summary:
+The recommendation service's memory usage climbed steadily throughout each
+day and the pod would OOM-crash and restart every night around the same
+time. This had been happening for about a week before anyone investigated,
+since auto-restart masked the symptom.
+
+Root cause:
+A caching layer was storing computed recommendations per-user but never
+evicting old entries. Under normal traffic this cache grew unbounded.
+
+Fix:
+Added an LRU eviction policy with a max cache size. Memory usage now
+plateaus instead of growing indefinitely.
+
+How to recognize this pattern:
+Slow, steady memory growth over hours (not a sudden spike) combined with
+periodic restarts is a classic sign of an unbounded cache or collection
+that's never cleared. Check any in-memory caching layer first.

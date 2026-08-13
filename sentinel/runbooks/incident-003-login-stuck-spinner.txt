@@ -1,0 +1,24 @@
+Title: Login page stuck on loading spinner
+Date: 2025-12-01
+Severity: Medium
+
+Summary:
+Users reported the login page loading indefinitely with no error message.
+No 500s were showing in the API gateway logs, which made this confusing
+at first - the request just never completed.
+
+Root cause:
+The auth service was making an outbound call to a third-party identity
+verification API that had no timeout configured. When that third-party
+API became slow, our auth service just hung waiting forever, and the
+frontend spinner never resolved because it was waiting on a response
+that would never come back in a reasonable time.
+
+Fix:
+Added a 5 second timeout to the outbound call, with a fallback error
+message shown to the user if it's exceeded.
+
+How to recognize this pattern:
+"Stuck loading, no error" symptoms often point to a missing timeout on
+an outbound call to a dependency, not a crash. Check external API calls
+in the relevant service before assuming it's a frontend bug.

@@ -1,0 +1,25 @@
+Title: Payment failures due to third-party processor outage
+Date: 2025-10-05
+Severity: Critical
+
+Summary:
+Payment success rate dropped from 98% to 40% within minutes. No deploys
+had happened in the previous 24 hours, which initially ruled out a
+code-related cause.
+
+Root cause:
+Our external payment processor was having a partial outage on their end.
+Our payment service had no circuit breaker, so it kept retrying failed
+calls to the degraded provider, which also slowed down unrelated requests
+due to thread pool exhaustion.
+
+Fix:
+Added a circuit breaker that stops calling the payment provider after a
+threshold of failures, and shows users a "try again shortly" message
+instead of hanging. Set up a status page subscription for the provider
+to get outage alerts directly.
+
+How to recognize this pattern:
+Sudden failure rate increase with zero recent deploys usually points
+outward, not inward - check third-party/vendor status pages before
+digging through your own code or logs.

@@ -1,0 +1,21 @@
+Title: Checkout 500s after promo-code feature deploy
+Date: 2025-11-03
+Severity: High
+
+Summary:
+The checkout service started returning 500 errors 6 minutes after deploying
+a new "discount code" feature. Error rate climbed to 15% within 10 minutes.
+
+Root cause:
+The new discount-code field was optional in the frontend but the backend
+validation logic did not handle a null value, causing a NullPointerException
+on any checkout where the user didn't enter a code.
+
+Fix:
+Added a null check before validating discount_code. Deployed hotfix within
+25 minutes of detection.
+
+How to recognize this pattern:
+Look for NullPointerException errors in checkout logs that started right
+after a deploy touching optional/new fields. Correlate error onset time
+with recent merge/deploy timestamps.
