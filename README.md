@@ -1,129 +1,222 @@
 # Sentinel
 
-**An AI-powered incident investigation copilot for on-call engineers.**
+**A domain-extensible agentic incident-intelligence platform, built in Java + Spring Boot.**
 
-When a production incident fires, Sentinel investigates it the way a senior SRE would — by pulling up similar past incidents before offering a diagnosis, instead of guessing from the incident description alone.
+Sentinel detects operational problems, investigates their causes with evidence and historical memory, proposes a bounded intervention, passes it through deterministic safety policies, executes approved actions through external tools, observes the outcome, and learns from what happened.
 
-Built as a hands-on project to go deeper than "call an LLM API" — this implements a real Retrieval-Augmented Generation (RAG) pipeline from scratch in Java, with plans to grow into a multi-agent system with a proper evaluation harness.
+> **AI proposes. Evidence supports. Policy decides. Tools execute. Outcomes teach.**
+
+Its first complete domain is **Sentinel Revenue Intelligence** — an autonomous-but-governed payment-recovery system built for the **Razorpay AI Revenue Recovery** track, integrating Razorpay Test Mode end to end: detection → investigation → recovery → policy gate → execution → webhook outcome → measured recovered revenue.
+
+Sentinel started as a single-agent RAG incident copilot ([original prototype](https://github.com/sufibuildwith-py/Sentinel)) and is being rebuilt into a proper multi-agent, policy-governed platform without throwing that foundation away — the original `/investigate` endpoint still works.
 
 ---
 
-## The problem
+## Why this exists
 
-When an on-call engineer gets paged, the first 15–20 minutes usually go into manual detective work: has this happened before? What changed recently? What do the logs say? Sentinel automates the "has this happened before" step by retrieving the most relevant past incident from a runbook archive and grounding its diagnosis in that evidence — instead of the LLM guessing blind.
+Most "AI revenue recovery" demos are a chatbot that reads a failed-payment description and suggests something plausible. That's not what Razorpay is asking for, and it's not what makes a durable system.
 
-## How it works
+Sentinel treats revenue loss the way an SRE treats an incident: something abnormal happened, it needs evidence before a diagnosis, the diagnosis needs a bounded response, and the response needs a stopping condition. Nothing here executes a financial action because a language model felt confident about it — every action passes through a deterministic policy engine first, and every step is written to an audit trail.
 
+## Status: Phase 4 of 10 complete
+
+| Phase | Focus | Status | Outcome |
+|---|---|---|---|
+| 1 | Sentinel Core & project hygiene | ✅ Complete | Extensible core; original `/investigate` flow untouched |
+| 2 | Revenue domain & persistence | ✅ Complete | Normalized payment/incident data in PostgreSQL, Flyway-migrated |
+| 3 | Detection & incident clustering | ✅ Complete | Explainable revenue incidents, zero LLM calls |
+| 4 | Agentic investigation & memory | ✅ Complete | Evidence-backed root cause, validated structured output, historical memory |
+| 5 | Recovery planning, policy & audit | ⏳ Next | Governed AUTO / HUMAN / DENY decisions |
+| 6 | Razorpay Test Mode execution | Planned | Real Payment Link recovery actions |
+| 7 | Outcome loop & revenue measurement | Planned | Webhook-driven outcomes, recovered-revenue metrics |
+| 8 | Operational dashboard | Planned | Full workflow visible without Postman |
+| 9 | Evaluation & reliability | Planned | Measured quality, safe failure behaviour |
+| 10 | Integration, release & submission | Planned | Reproducible, demo-ready release |
+
+## The loop, as built so far
+
+```text
+Payment events (batch ingestion, idempotent)
+        │
+        ▼
+Deterministic detection — success-rate drop, baseline deviation,
+failure-code concentration — no LLM in this step
+        │
+        ▼
+Explainable clustering — related failures grouped by method,
+issuer, error code, time window → a quantified RevenueIncident
+        │
+        ▼
+Agentic investigation
+  Triage Agent → Payment Analyst (+ Pattern Analyzer,
+  Customer Context tools) → historical memory retrieval
+  → Root Cause Agent → structured, validated diagnosis
+        │
+        ▼
+DIAGNOSED incident: root cause, confidence, evidence,
+alternative hypotheses — nothing here has spent a rupee
 ```
-Incident description
-        │
-        ▼
-  Embed the incident (Gemini Embedding API)
-        │
-        ▼
-  Compare against embedded runbook corpus (cosine similarity)
-        │
-        ▼
-  Retrieve the most similar past incident
-        │
-        ▼
-  Gemini generates a diagnosis, grounded in the retrieved evidence
-        │
-        ▼
-  Structured response: hypothesis + what to check next
-```
 
-On startup, Sentinel reads a small corpus of past-incident "runbooks" from the `runbooks/` folder and embeds each one once, keeping them in memory. Every new incident is embedded and compared against that corpus to find the closest match before the LLM ever sees the request.
+Phases 5–7 close the loop: a recovery proposal, a policy gate that returns AUTO / HUMAN / DENY, execution through Razorpay Test Mode, and a webhook-driven outcome that updates a recovered-revenue metric.
 
-## Example
+## Example: what an incident looks like today
 
-**Request**
-```json
-POST /investigate
-{ "incident": "checkout is throwing errors after we deployed the new discount code feature" }
-```
+**Detection + clustering (Phase 3)** — fed a batch with a UPI-issuer degradation:
 
-**Response**
 ```json
 {
-  "diagnosis": "Hypothesis: Based on the November 2025 incident, the backend is likely throwing a NullPointerException because the new discount code field is optional, and validation isn't handling null values. What to check next: 1) Search checkout service logs for NullPointerException since the deploy. 2) Compare error rates between transactions with vs without a discount code."
+  "incidentId": "RR-1042",
+  "type": "UPI_DEGRADATION",
+  "severity": "CRITICAL",
+  "amountAtRiskMinor": 8460000,
+  "affectedPayments": 38,
+  "affectedCustomers": 31,
+  "findings": [
+    {
+      "source": "DETECTOR",
+      "rule": "SUCCESS_RATE_DROP",
+      "baseline": "96.3%",
+      "observed": "54.8%",
+      "delta": "-41.5pp",
+      "result": "PASS"
+    }
+  ]
 }
 ```
 
-Sentinel correctly identified and cited the specific past incident that matched — not a generic guess — because it actually retrieved it first.
+**Agentic investigation (Phase 4)** — the same incident, once the Root Cause Agent runs:
+
+```json
+{
+  "rootCause": "UPI issuer degradation at Bank X",
+  "confidence": 0.91,
+  "evidence": [
+    "73% of failures are UPI",
+    "61% involve Bank X",
+    "failure onset 09:42, no corresponding rise in card failures"
+  ],
+  "alternativeHypotheses": [],
+  "similarHistoricalIncidents": 14,
+  "historicalStrategySuccessRate": {
+    "strategy": "ALTERNATIVE_PAYMENT_LINK",
+    "attempts": 47,
+    "recovered": 34,
+    "rate": "72.3%"
+  }
+}
+```
+
+That last block is the part worth noticing: the recommendation isn't "the model believes this is a good idea," it's "this action worked on 72% of similar past incidents." Evidence over vibes.
+
+## Architecture
+
+```text
+                            SENTINEL CORE
+                ┌─────────────────────────────────┐
+                │ Agents · Orchestration · Memory  │
+                │ Policy · Tools · Audit · Evals   │
+                └───────────────┬───────────────────┘
+                                │
+                     Revenue Recovery domain
+                ┌───────────────┴─────────────────┐
+                │ Events · Detection · Incidents   │
+                │ Analysis · Planning · Recovery   │
+                └───────────────┬─────────────────┘
+                                │
+                  Deterministic policy engine
+                     ┌──────────┼──────────┐
+                     ↓          ↓          ↓
+                   AUTO       HUMAN       DENY
+                     └──────────┬──────────┘
+                                ↓
+                     Razorpay Test Mode tools
+                                ↓
+                   Webhooks · Outcomes · Metrics
+```
+
+The core knows what an incident is. The Revenue Recovery domain knows what payments, customers, failures, and Razorpay APIs are. That separation is deliberate — it's what lets Sentinel grow additional domain packs (engineering ops, infra, security) after this one, instead of being a single-purpose Razorpay app.
 
 ## Tech stack
 
-- **Java 17 + Spring Boot** — REST API, dependency injection, layered architecture (controller / service / DTO)
-- **Google Gemini API** — both generation (diagnosis) and embeddings (retrieval)
-- **In-memory vector store** — cosine similarity search over embedded runbooks (no external vector DB yet — see roadmap)
-- **Jackson** — JSON request/response handling
+- **Java 17 + Spring Boot 3** — REST API, layered architecture, dependency injection
+- **PostgreSQL + Spring Data JPA + Flyway** — system of record, versioned schema
+- **Google Gemini** — generation (structured, schema-validated output only) and embeddings
+- **Apache Commons Math** — rolling-baseline statistics for detection
+- **Easy Rules** — explainable, traceable detection rule evaluation
+- **Resilience4j** — circuit-breaking around the LLM and (soon) Razorpay calls, so external outages degrade gracefully instead of cascading
+- **Testcontainers** — every persistence/integration test runs against real PostgreSQL, never H2
+- **DataFaker** — deterministic, seeded synthetic payment datasets for evaluation
 
 ## Project structure
 
-```
-sentinel/
+```text
+Sentinel/
 ├── src/main/java/com/sentinel/
-│   ├── controller/
-│   │   └── InvestigateController.java   # orchestrates the RAG pipeline
-│   ├── service/
-│   │   ├── GeminiService.java           # calls Gemini for diagnosis generation
-│   │   ├── EmbeddingService.java        # calls Gemini for embeddings
-│   │   └── RunbookStore.java            # in-memory vector store + similarity search
-│   └── dto/
-│       ├── IncidentRequest.java
-│       ├── InvestigationResponse.java
-│       └── RunbookEntry.java
-├── runbooks/                            # corpus of past-incident text files
-└── src/main/resources/application.properties
+│   ├── core/                 # agent abstraction, orchestration, memory,
+│   │                         # policy, audit, LLM/embedding client interfaces
+│   └── revenue/
+│       ├── model/            # PaymentEvent, RevenueIncident, IncidentFinding,
+│       │                     # RecoveryPlan/Action/Outcome, AuditEvent, ...
+│       ├── detection/        # StatisticsEngine, DetectionRuleEngine
+│       ├── service/          # FailureClusteringService, state machine,
+│       │                     # ingestion, historical memory
+│       ├── agent/            # Triage, Payment Analyst, Root Cause agents
+│       ├── api/              # REST controllers
+│       └── dataset/          # synthetic evaluation dataset generator
+├── src/main/resources/db/migration/   # Flyway migrations
+├── runbooks/                 # original + revenue-domain runbook corpus
+└── docs/                     # architecture, API, evaluation notes
 ```
 
 ## Running it locally
 
-**1. Get a Gemini API key**
-Free tier available at [aistudio.google.com](https://aistudio.google.com).
-
-**2. Set it as an environment variable**
-
-PowerShell:
-```powershell
-$env:GEMINI_API_KEY="your_key_here"
+**1. Start PostgreSQL** (Docker):
+```bash
+docker run --name sentinel-pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16
 ```
 
-macOS/Linux:
+**2. Set environment variables**
 ```bash
 export GEMINI_API_KEY="your_key_here"
+export SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/postgres"
+export SPRING_DATASOURCE_USERNAME="postgres"
+export SPRING_DATASOURCE_PASSWORD="postgres"
 ```
 
-**3. Run the app**
+**3. Run migrations and start the app**
 ```bash
+mvn flyway:migrate
 mvn spring-boot:run
 ```
 
-On startup you should see each runbook get embedded:
-```
-Embedded runbook: incident-001-checkout-null-discount.txt
-...
-Loaded 5 runbooks into the vector store
+**4. Load the synthetic dataset and watch detection fire**
+```bash
+curl -X POST http://localhost:8080/api/v1/revenue/events/batch \
+  -H "Content-Type: application/json" \
+  -d @datasets/payment-batch-labelled.json
 ```
 
-**4. Send a request**
+**5. See a live-injected demo incident**
 ```bash
-curl -X POST http://localhost:8080/investigate \
-  -H "Content-Type: application/json" \
-  -d '{"incident": "database CPU is at 95% and queries are timing out"}'
+curl -X POST http://localhost:8080/api/v1/demo/inject/upi-outage
 ```
 
 ## Roadmap
 
-- [x] **Phase 1** — Single-agent pipeline: incident in, LLM diagnosis out
-- [x] **Phase 2** — RAG: embed + retrieve relevant past incidents before generating a diagnosis
-- [ ] **Phase 3** — Multi-agent orchestration: a triage agent routes to specialist agents (change-correlation via GitHub API, log analysis, retrieval), with a synthesis agent combining their findings
-- [ ] **Phase 4** — Evaluation harness (golden incident dataset, retrieval + faithfulness metrics), observability/tracing, and a proper vector database (pgvector) in place of the in-memory store
+- [x] Phase 1 — Sentinel Core extracted, original investigation flow preserved
+- [x] Phase 2 — Revenue domain modeled and persisted in PostgreSQL
+- [x] Phase 3 — Deterministic, explainable detection and clustering
+- [x] Phase 4 — Agentic investigation grounded in evidence and historical memory
+- [ ] Phase 5 — Recovery planning + deterministic policy engine (AUTO/HUMAN/DENY)
+- [ ] Phase 6 — Razorpay Test Mode execution (Payment Links)
+- [ ] Phase 7 — Webhook outcome loop, recovered-revenue metric
+- [ ] Phase 8 — Next.js operational dashboard
+- [ ] Phase 9 — Evaluation harness, resilience testing
+- [ ] Phase 10 — Submission hardening and demo release
 
-## Why this project
+## What Sentinel deliberately is not
 
-I'm a final-year B.Tech AI/ML student pivoting from general software engineering into AI engineering. Most portfolio projects in this space are thin LLM API wrappers — this one is my attempt to actually implement the patterns (RAG, and soon multi-agent orchestration + evals) that production AI systems are built on, in a stack (Java/Spring Boot) that most AI portfolios don't use.
+No fifteen-agent swarm, no Kubernetes, no custom ML anomaly model before the rule-based one earns it, no real-money automation, no giant RAG corpus. Deep rather than bloated — every component here exists because a specific requirement needed it.
 
 ## License
 
