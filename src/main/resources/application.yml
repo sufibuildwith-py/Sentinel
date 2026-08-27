@@ -1,0 +1,24 @@
+sentinel:
+  investigation:
+    timeout: 5s
+    memory-top-k: 5
+    memory-minimum-similarity: 0.35
+    circuit-breaker-failure-rate: 50
+    circuit-breaker-minimum-calls: 2
+    circuit-breaker-window-size: 4
+    circuit-breaker-open-duration: 30s
+  detection:
+    evaluation-window: 60m
+    cluster-window: 60m
+    baseline-window: 24h
+    baseline-bucket: 15m
+    minimum-volume: 10
+    minimum-success-rate-drop: 0.20
+    minimum-baseline-deviation: 2.0
+    minimum-amount-at-risk-minor: 100000
+    default-baseline-success-rate: 0.95
+    minimum-baseline-standard-deviation: 0.05
+    success-statuses:
+      - CAPTURED
+      - AUTHORIZED
+    merchant-metadata-key: merchantId
