@@ -94,22 +94,21 @@ This baseline must continue working while the platform is expanded. The revenue 
 
 The Java backend remains the system of record. PostgreSQL is the only required infrastructure service. The dashboard is a separate Next.js and TypeScript application.
 
-## Ten-phase roadmap
-
-| Phase | Focus | Status | Main outcome |
+## Status: Phase 4 of 10 complete
+ 
+| Phase | Focus | Status | Outcome |
 |---|---|---|---|
-| 1 | Sentinel Core and project hygiene | Complete | Extensible core without breaking `/investigate` |
-| 2 | Revenue domain and persistence | Next | Normalized payment and incident data in PostgreSQL |
-| 3 | Detection and incident clustering | Planned | Explainable revenue incidents created without an LLM |
-| 4 | Agentic investigation and memory | Complete | Evidence-backed root cause with validated structured output |
-| 5 | Recovery planning, policy, and audit | Planned | Governed AUTO/HUMAN/DENY decisions |
-| 6 | Razorpay Test Mode execution | Planned | Real Payment Link recovery actions with bounded execution |
-| 7 | Outcome loop and revenue measurement | Planned | Webhook-driven outcomes and recovered-revenue metrics |
-| 8 | Operational dashboard | Planned | Complete workflow visible without relying on Postman |
-| 9 | Evaluation, testing, and resilience | Planned | Measured quality and safe failure behaviour |
-| 10 | Integration, release, and submission | Planned | Reproducible Buildathon-ready release and demo |
-
----
+| 1 | Sentinel Core & project hygiene | ✅ Complete | Extensible core; original `/investigate` flow untouched |
+| 2 | Revenue domain & persistence | ✅ Complete | Normalized payment/incident data in PostgreSQL, Flyway-migrated |
+| 3 | Detection & incident clustering | ✅ Complete | Explainable revenue incidents, zero LLM calls |
+| 4 | Agentic investigation & memory | ✅ Complete | Evidence-backed root cause, validated structured output, historical memory |
+| 5 | Recovery planning, policy & audit | ⏳ Next | Governed AUTO / HUMAN / DENY decisions |
+| 6 | Razorpay Test Mode execution | Planned | Real Payment Link recovery actions |
+| 7 | Outcome loop & revenue measurement | Planned | Webhook-driven outcomes, recovered-revenue metrics |
+| 8 | Operational dashboard | Planned | Full workflow visible without Postman |
+| 9 | Evaluation & reliability | Planned | Measured quality, safe failure behaviour |
+| 10 | Integration, release & submission | Planned | Reproducible, demo-ready release |
+ 
 
 ## Phase 1 — Sentinel Core and project hygiene
 
