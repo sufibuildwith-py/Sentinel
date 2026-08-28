@@ -18,9 +18,17 @@ For visual review without the backend, set `NEXT_PUBLIC_USE_FIXTURES=true`. Keep
 
 ```powershell
 npm run verify
+npx playwright install chromium
+npm run test:e2e
 ```
 
-This runs ESLint, strict TypeScript checking, focused workflow tests, and the production build.
+`verify` runs ESLint, strict TypeScript checking, focused workflow/evaluation tests, and the production build. Playwright separately exercises the Evaluation Lab at desktop and mobile widths, checks the keyboard/dialog path, runs axe WCAG A/AA analysis, and captures full-page visual evidence in `test-results/`.
+
+## Evaluation Lab
+
+Open [http://localhost:3000/evaluation](http://localhost:3000/evaluation) for the Phase 9 proof surface. It reads `GET /api/v1/evaluation/report`, can regenerate the fixed-seed report with `POST /api/v1/evaluation/run`, and exposes canonical JSON/Markdown downloads. With fixtures enabled, it displays the same 464-scenario report shape without contacting the backend.
+
+The scorecard deliberately exposes the numerator/denominator, confusion matrix, sample counts, deterministic failure evidence, zero-tolerance safety gates and limitations. Logical latency is not presented as a production benchmark.
 
 ## Safety boundary
 

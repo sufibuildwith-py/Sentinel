@@ -1,5 +1,6 @@
 import { fixtureApprovals, fixtureAudit, fixtureDetail, fixtureIncidents, fixtureMetrics } from "./fixtures";
-import type { Approval, AuditEntry, ExecutionResult, IncidentDetail, IncidentSummary, Metrics, PlanningResult } from "./types";
+import { fixtureEvaluation } from "./evaluation-fixture";
+import type { Approval, AuditEntry, EvaluationReport, ExecutionResult, IncidentDetail, IncidentSummary, Metrics, PlanningResult } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_SENTINEL_API_URL ?? "http://localhost:8080";
 const USE_FIXTURES = process.env.NEXT_PUBLIC_USE_FIXTURES === "true";
@@ -31,6 +32,9 @@ export const api = {
   decide: (actionId: string, decision: "approve" | "reject", actor: string, reason: string) => request(`/api/v1/revenue/actions/${actionId}/${decision}`, { method: "POST", body: JSON.stringify({ actor, reason }) }),
   reset: () => USE_FIXTURES ? delay({ reset: true }) : request("/api/v1/demo/reset", { method: "POST" }),
   inject: () => USE_FIXTURES ? delay({ incidentIds: [fixtureIncidents[0].incidentId] }) : request<{ incidentIds?: string[] }>("/api/v1/demo/inject/upi-outage", { method: "POST" }),
+  evaluation: () => USE_FIXTURES ? delay(fixtureEvaluation) : request<EvaluationReport>("/api/v1/evaluation/report"),
+  runEvaluation: () => USE_FIXTURES ? delay(fixtureEvaluation) : request<EvaluationReport>("/api/v1/evaluation/run", { method: "POST" }),
+  evaluationDownloadUrl: (format: "json" | "md") => `${API_URL}/api/v1/evaluation/report.${format}`,
 };
 
 export const money = (minor: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(minor / 100);

@@ -679,30 +679,103 @@ The primary five-minute story can be demonstrated from the dashboard without Pos
 
 **Goal:** Prove that Sentinel is effective, policy-compliant, and safe under failure.
 
-### Work
+Phase 9 is implemented as a deterministic proof harness rather than another product feature. It generates 464 balanced, labelled cases from 29 categories using seed `20260901`, runs them through the real deterministic detection, policy, signature-verification and safety boundaries, and compares the actual decision with an independent expected oracle. No live LLM or Razorpay credential is needed.
 
-- Run all 200–500 labelled payment events through a reproducible evaluation harness.
-- Measure detection precision/recall, root-cause accuracy, recovery rate, policy compliance, escalation rate, false interventions, duplicate actions, and latency.
-- Report recovered revenue and recovery performance by strategy.
-- Add unit tests for calculations, clustering, state transitions, policy rules, signature validation, idempotency, and metrics.
-- Add integration tests for database migrations, APIs, agent orchestration, execution, and webhook processing.
-- Test LLM outage, Razorpay outage, invalid structured output, low confidence, already-paid customers, duplicate actions, and duplicate webhooks.
-- Add safe structured logs, correlation IDs, health checks, and stage-level latency/cost observations.
-- Verify PII minimization and prompt-injection boundaries for runbooks and external evidence.
-- Add CI that builds the backend/dashboard and runs deterministic tests without live credentials.
+### Evaluation architecture
 
-### Deliverable
+```text
+fixed seed + committed schema
+          │
+          ▼
+ labelled scenario generator (464 cases)
+          │
+          ├── real DetectionRuleEngine
+          ├── real PolicyEngine + mandatory stop pass
+          ├── real webhook HMAC verifier
+          └── deterministic LLM/provider failure fixtures
+          │
+          ▼
+ expected vs actual evidence ──► hard safety gates
+          │                         (any failure fails CI)
+          ▼
+ canonical JSON + Markdown + SHA-256 + persisted evaluation_runs row
+          │
+          ├── GET/POST /api/v1/evaluation/*
+          └── dashboard /evaluation
+```
 
-An evaluation report and automated test suite demonstrating system quality, safety, and graceful degradation.
+The dataset covers normal/noisy controls, anomaly families, all policy verdicts and mandatory stop reasons, approval flow, duplicate action attempts, duplicate/out-of-order/partial/cancelled webhooks, signature and reconciliation mismatches, LLM timeout/outage/invalid JSON/schema failures, Razorpay 400/401/429/timeout/5xx and ambiguous create, plus prompt-injection and PII boundaries. The committed contract is documented in [`evaluation/README.md`](evaluation/README.md) and [`evaluation/schema/sentinel-evaluation-scenario.schema.json`](evaluation/schema/sentinel-evaluation-scenario.schema.json).
 
-### Exit criteria
+### Authoritative metrics
 
-- Evaluation results are generated from a clean run and displayed in the dashboard/report.
-- Policy compliance is 100% for the labelled evaluation scenarios.
-- Duplicate recovery actions remain zero.
-- LLM failure prevents autonomous recovery and returns deterministic diagnostics.
-- Razorpay failure is bounded and does not cause repeated uncontrolled calls.
-- All required backend and frontend checks pass in CI.
+| Metric | Definition | Evidence population |
+|---|---|---|
+| Detection precision | `TP / (TP + FP)` | labelled incident and control scenarios |
+| Detection recall | `TP / (TP + FN)` | labelled incident scenarios |
+| Root-cause accuracy | matching categories / diagnosed labelled incidents | expected vs actual category |
+| Policy compliance | matching verdicts / labelled incidents | persisted deterministic rule trace |
+| False intervention rate | unsafe financial mutations / all scenarios | outcome ledger |
+| Escalation rate | HUMAN decisions / labelled incidents | policy results |
+| Verified recovery rate | signed verified paid outcomes / attempts | reconciled webhook outcomes |
+
+The report always includes raw numerator and denominator. Confusion-matrix cells, funnel stages, per-strategy sample sizes, p50/p95 logical stage latency and failure evidence are inspectable. Logical latency is deterministic regression evidence—not a production benchmark. Every money figure is labelled **Razorpay Test Mode / Synthetic Evaluation** and does not claim production uplift.
+
+Hard zero-tolerance gates cover unsafe autonomous execution, duplicate financial effects, accepted invalid signatures, reversed paid outcomes, policy disagreement, approval bypass, sensitive-data leakage and same-seed result drift. A single non-zero counter fails the integration test and CI.
+
+### Generate the proof report
+
+Docker must be running because PostgreSQL integration tests never substitute H2:
+
+```powershell
+mvn clean verify
+```
+
+The focused report command is:
+
+```powershell
+mvn -Dtest=EvaluationHarnessIntegrationTest test
+```
+
+It writes `target/evaluation-reports/sentinel-evaluation-report.json` and `.md`, migrates an empty real PostgreSQL database through Flyway V7, persists the canonical report and SHA-256, and proves a repeat run is identical. The optional live Razorpay Test Mode path remains credential-gated; the default suite is fully offline and deterministic.
+
+Runtime proof endpoints:
+
+```text
+GET  /api/v1/evaluation/report       current structured report
+POST /api/v1/evaluation/run          regenerate and persist from the fixed seed
+GET  /api/v1/evaluation/report.json  canonical JSON download
+GET  /api/v1/evaluation/report.md    human-readable Markdown download
+GET  /actuator/health                application and evaluation readiness
+GET  /actuator/metrics               bounded stage/outcome observations
+```
+
+`X-Correlation-Id` is accepted or safely generated and returned on every response. Observability tags are bounded to route stage and outcome; request bodies, customer identifiers, provider payloads and secrets are never logged or tagged.
+
+### Dashboard proof surface
+
+Open [http://localhost:3000/evaluation](http://localhost:3000/evaluation). The Evaluation Lab shows the executive scorecard, hard gates, accessible confusion matrix, recovery funnel, strategy sample counts, scenario-level expected/actual evidence, failure-injection laboratory, metric definitions and honest limitations. It supports JSON/Markdown download and regeneration through the same backend report.
+
+### Five-minute evaluation demo
+
+1. Start Docker/PostgreSQL, the Spring Boot backend, and the dashboard using the setup commands above.
+2. Open `/evaluation` and call out the permanent **Razorpay Test Mode / Synthetic Evaluation** scope label.
+3. Select **Run evaluation**; the backend regenerates all 464 cases from seed `20260901`, validates every hard gate, and persists the version/hash once.
+4. Walk the confusion matrix and recovery funnel, then open **Definitions** to show the authoritative numerator, denominator and evidence source.
+5. Filter the Scenario Explorer for `already paid` to demonstrate a deterministic DENY, then `invalid signature` to show zero financial mutation.
+6. Open **Failure laboratory** to show bounded LLM, provider, concurrency, circuit, webhook-ordering and prompt-injection behavior.
+7. Download JSON or Markdown and finish with the limitations: these results prove deterministic behavior against this committed oracle, not production prevalence or merchant revenue uplift.
+
+### What this proves / what it does not prove
+
+This proves that the checked-in decision code matches an independent labelled oracle for the committed scenario matrix; mandatory stop and approval gates cannot be bypassed by the evaluated paths; duplicate/invalid/out-of-order inputs do not double count financial outcomes; provider and model failures are bounded; and the full proof is reproducible without credentials on real PostgreSQL.
+
+It does not prove production payment-success uplift, real merchant recovery rate, causal impact, workload capacity, or the prevalence of any scenario. The logical p50/p95 values detect regression in the fixture cost model and must not be presented as production latency. Razorpay is neither endorsing these results nor represented by the synthetic provider fixtures.
+
+### CI and acceptance evidence
+
+`.github/workflows/phase9-proof.yml` runs the credential-pattern/generated-file scan, Java 17 `mvn clean verify` with Docker-backed PostgreSQL, dashboard lint/type/unit/build checks, and desktop/mobile Playwright plus axe accessibility journeys. It uploads Surefire, JaCoCo, canonical evaluation reports and browser evidence on every run.
+
+Phase 9 is complete when all zero-tolerance gates pass, policy compliance is 100%, duplicate recovery actions and financial effects remain zero, LLM/provider failures are bounded, the same seed produces identical output, and both backend and dashboard verification commands pass from a clean checkout.
 
 ---
 

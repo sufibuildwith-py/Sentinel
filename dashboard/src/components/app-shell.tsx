@@ -15,6 +15,7 @@ const navigation = [
   { href: "/incidents", label: "Incidents", icon: Activity },
   { href: "/approvals", label: "Approval queue", icon: ListChecks },
   { href: "/metrics", label: "Metrics & audit", icon: BarChart3 },
+  { href: "/evaluation", label: "Evaluation lab", icon: ShieldCheck },
   { href: "/demo", label: "Demo controls", icon: FlaskConical },
 ];
 

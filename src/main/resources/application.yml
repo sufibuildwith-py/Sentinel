@@ -1,4 +1,8 @@
 sentinel:
+  evaluation:
+    seed: 20260901
+    scenarios-per-category: 16
+    report-version: phase9-v1
   razorpay:
     enabled: ${RAZORPAY_ENABLED:false}
     key-id: ${RAZORPAY_KEY_ID:}
@@ -56,3 +60,17 @@ sentinel:
       - CAPTURED
       - AUTHORIZED
     merchant-metadata-key: merchantId
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  metrics:
+    tags:
+      application: sentinel

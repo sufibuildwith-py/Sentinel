@@ -10,3 +10,20 @@ export interface Approval { actionId: string; incidentId: string; incidentType: 
 export interface Metrics { revenueAtRiskMinor: number; attemptedRecoveryMinor: number; recoveredRevenueMinor: number; recoveryRate: number; activeIncidents: number; strategyPerformance: { strategy: string; recoveredMinor: number; attemptedMinor: number; rate: number; }[]; }
 export interface PlanningResult { planId: string; actionId: string; incidentId: string; strategy: string; policyDecision: string; actionStatus: string; incidentStatus: string; ruleTrace: { rule: string; passed: boolean; actual: string; threshold: string }[]; reason: string; }
 export interface ExecutionResult { incidentId: string; actionId: string; actionStatus: string; providerId: string; referenceId: string; providerStatus: string; shortUrl?: string; existing: boolean; mode: string; message: string; }
+
+export interface EvaluationScore { numerator: number; denominator: number; value: number; }
+export interface EvaluationScenarioResult { scenarioId: string; category: string; expectedIncident: boolean; actualIncident: boolean; expectedRootCauseCategory: string; actualRootCauseCategory: string; expectedPolicyDecision: "AUTO" | "HUMAN" | "DENY" | null; actualPolicyDecision: "AUTO" | "HUMAN" | "DENY" | null; approvalRequired: boolean; expectedExecutionBehavior: string; actualExecutionBehavior: string; expectedProviderOutcome: string; actualProviderOutcome: string; expectedFinancialMutationMinor: number; actualFinancialMutationMinor: number; passed: boolean; auditEvents: string[]; logicalLatencyMillis: Record<string, number>; }
+export interface EvaluationReport {
+  title: string; scopeLabel: string; reportVersion: string; seed: number; datasetSize: number; deterministicTimestamp: string;
+  detectionPrecision: EvaluationScore; detectionRecall: EvaluationScore; detectionF1: EvaluationScore; rootCauseExactAccuracy: EvaluationScore; rootCauseCategoryAccuracy: EvaluationScore; policyCompliance: EvaluationScore; executionEligibilityAccuracy: EvaluationScore; falsePositiveRate: EvaluationScore; falseInterventionRate: EvaluationScore; escalationRate: EvaluationScore; recoveryAttemptRate: EvaluationScore; verifiedRecoveryRate: EvaluationScore;
+  detectionConfusionMatrix: { truePositive: number; falsePositive: number; falseNegative: number; trueNegative: number; };
+  recoveryFunnel: { amountAtRiskMinor: number; detectedIncidents: number; policyEligible: number; attempted: number; verifiedRecovered: number; };
+  recoveredAmountMinor: number; duplicateActionsCreated: number; duplicateFinancialEffects: number;
+  strategyPerformance: { strategy: string; sampleCount: number; attemptedCount: number; recoveredCount: number; attemptedAmountMinor: number; recoveredAmountMinor: number; recoveryRate: number; }[];
+  latencyMillis: Record<string, { sampleCount: number; p50: number; p95: number; measurementMode: string; }>;
+  safetyGates: { gate: string; actual: number; required: string; passed: boolean; evidence: string; }[];
+  scenarios: EvaluationScenarioResult[];
+  failureInjectionMatrix: { failure: string; scenarioCount: number; observedBehavior: string; bounded: boolean; evidence: string; }[];
+  metricDefinitions: { metric: string; formula: string; numerator: number; denominator: number; evidence: string; }[];
+  limitations: string[];
+}

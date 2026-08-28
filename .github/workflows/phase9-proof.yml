@@ -1,0 +1,65 @@
+name: Phase 9 proof
+
+on:
+  push:
+    branches: [main, "codex/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Repository safety scan
+        run: bash scripts/verify-no-secrets.sh
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Backend, real PostgreSQL integration tests, and evaluation gates
+        run: mvn --batch-mode clean verify
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Dashboard dependencies
+        working-directory: dashboard
+        run: npm ci
+
+      - name: Dashboard lint, types, unit tests, and production build
+        working-directory: dashboard
+        run: npm run verify
+
+      - name: Install Playwright Chromium
+        working-directory: dashboard
+        run: npx playwright install --with-deps chromium
+
+      - name: Evaluation Lab browser and accessibility proof
+        working-directory: dashboard
+        run: npm run test:e2e
+
+      - name: Upload proof artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase9-proof-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            target/surefire-reports/
+            target/failsafe-reports/
+            target/site/jacoco/
+            target/evaluation-reports/
+            dashboard/playwright-report/
+            dashboard/test-results/
