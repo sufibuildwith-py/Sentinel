@@ -1,3 +1,5 @@
+© 2026 [Sufiyan Khan]. All rights reserved.
+
 # Sentinel
 
 **A domain-extensible agentic incident-intelligence platform.**
@@ -1005,6 +1007,3 @@ Phase 1 follows primary documentation and representative open-source implementat
 - [Razorpay Payment Link states](https://razorpay.com/docs/payments/payment-links/states/)
 - [zrok local tunnel](https://zrok.io/)
 
-## License
-
-MIT
