@@ -79,8 +79,7 @@ class RevenueBatchIngestionIntegrationTest {
                 .extracting(incident -> incident.getType())
                 .containsExactlyInAnyOrder("UPI_DEGRADATION", "PROVIDER_OUTAGE");
         assertThat(incidents.findAll())
-                .noneSatisfy(incident -> assertThat(incident.getType())
-                        .isNotEqualTo("NORMAL_FAILURE_MIX"));
+                .noneMatch(incident -> "NORMAL_FAILURE_MIX".equals(incident.getType()));
         assertThat(findings.findAll()).hasSize(2).allSatisfy(finding -> {
             assertThat(finding.getSource()).isEqualTo(FindingSource.DETECTOR);
             assertThat(finding.getSummary())

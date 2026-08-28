@@ -10,6 +10,7 @@ import com.sentinel.revenue.model.RevenueIncident;
 import com.sentinel.revenue.repository.IncidentFindingRepository;
 import com.sentinel.revenue.repository.PaymentEventRepository;
 import com.sentinel.revenue.repository.RevenueIncidentRepository;
+import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,15 +26,18 @@ public class DemoRevenueService {
     private final PaymentEventRepository paymentEvents;
     private final RevenueIncidentRepository incidents;
     private final IncidentFindingRepository findings;
+    private final EntityManager entityManager;
 
     public DemoRevenueService(PaymentEventIngestionService ingestionService,
                               PaymentEventRepository paymentEvents,
                               RevenueIncidentRepository incidents,
-                              IncidentFindingRepository findings) {
+                              IncidentFindingRepository findings,
+                              EntityManager entityManager) {
         this.ingestionService = ingestionService;
         this.paymentEvents = paymentEvents;
         this.incidents = incidents;
         this.findings = findings;
+        this.entityManager = entityManager;
     }
 
     @Transactional
@@ -53,6 +57,9 @@ public class DemoRevenueService {
                 .map(RevenueIncident::getIncidentId)
                 .toList();
         if (!incidentIds.isEmpty()) {
+            entityManager.createNativeQuery("select set_config('sentinel.demo_reset', 'true', true)")
+                    .getSingleResult();
+            deleteIncidentDependents(incidentIds);
             findings.deleteAllByIncidentIncidentIdIn(incidentIds);
             findings.flush();
             incidents.deleteAllInBatch(syntheticIncidents);
@@ -84,5 +91,29 @@ public class DemoRevenueService {
                 incident.getType(),
                 incident.getAmountAtRiskMinor(),
                 incident.getAffectedPayments().size());
+    }
+
+    /**
+     * Demo reset is the sole maintenance path that removes derived synthetic state.
+     * AuditEventRepository remains append-only and deliberately exposes no delete operation.
+     */
+    private void deleteIncidentDependents(List<UUID> incidentIds) {
+        deleteByIncident("RecoveryOutcome", incidentIds);
+        deleteByIncident("RecoveryAction", incidentIds);
+        deleteByIncident("RecoveryPlan", incidentIds);
+        entityManager.createQuery("delete from HistoricalIncident historical "
+                        + "where historical.originalIncident.incidentId in :incidentIds")
+                .setParameter("incidentIds", incidentIds)
+                .executeUpdate();
+        deleteByIncident("AuditEvent", incidentIds);
+        entityManager.flush();
+        entityManager.clear();
+    }
+
+    private void deleteByIncident(String entityName, List<UUID> incidentIds) {
+        entityManager.createQuery("delete from " + entityName
+                        + " entity where entity.incident.incidentId in :incidentIds")
+                .setParameter("incidentIds", incidentIds)
+                .executeUpdate();
     }
 }

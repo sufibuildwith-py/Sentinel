@@ -16,12 +16,16 @@ import com.sentinel.revenue.model.RecoveryStrategy;
 import com.sentinel.revenue.model.RevenueIncident;
 import com.sentinel.revenue.model.RevenueIncidentStatus;
 import com.sentinel.revenue.model.RiskLevel;
+import com.sentinel.revenue.policy.PolicyEvaluation;
+import com.sentinel.revenue.policy.PolicyRuleResult;
+import com.sentinel.revenue.detection.RuleOutcome;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.context.annotation.Import;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -39,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Testcontainers
+@Import(JpaAuditEventRepository.class)
 class RevenueRepositoryTest {
 
     private static final Instant NOW = Instant.parse("2026-01-15T09:00:00Z");
@@ -112,18 +117,18 @@ class RevenueRepositoryTest {
     }
 
     @Test
-    void recoveryActionRepositoryPersistsNullablePolicyFields() {
+    void recoveryActionRepositoryPersistsHumanPolicyGate() {
         RevenueIncident incident = persistIncident();
         RecoveryPlan plan = plans.saveAndFlush(planFor(incident));
-        RecoveryAction action = actions.saveAndFlush(new RecoveryAction(
-                plan, incident, RecoveryActionStatus.PROPOSED, null,
-                null, null, 50_000, NOW, null, null));
+        RecoveryAction action = actions.saveAndFlush(RecoveryAction.fromPersistedPolicy(
+                plan, incident, policy(PolicyDecision.HUMAN), 50_000, NOW));
 
         assertThat(actions.findAllByRecoveryPlanId(plan.getId()))
                 .singleElement()
                 .satisfies(saved -> {
                     assertThat(saved.getId()).isEqualTo(action.getId());
-                    assertThat(saved.getPolicyDecision()).isNull();
+                    assertThat(saved.getPolicyDecision()).isEqualTo(PolicyDecision.HUMAN);
+                    assertThat(saved.getStatus()).isEqualTo(RecoveryActionStatus.PENDING_APPROVAL);
                 });
     }
 
@@ -131,9 +136,8 @@ class RevenueRepositoryTest {
     void recoveryOutcomeRepositoryPersistsResolvedAction() {
         RevenueIncident incident = persistIncident();
         RecoveryPlan plan = plans.saveAndFlush(planFor(incident));
-        RecoveryAction action = actions.saveAndFlush(new RecoveryAction(
-                plan, incident, RecoveryActionStatus.EXECUTED, PolicyDecision.AUTO,
-                "payment_link", "plink_1", 50_000, NOW, NOW, NOW));
+        RecoveryAction action = actions.saveAndFlush(RecoveryAction.fromPersistedPolicy(
+                plan, incident, policy(PolicyDecision.AUTO), 50_000, NOW));
         RecoveryOutcome outcome = outcomes.saveAndFlush(new RecoveryOutcome(
                 action, incident, RecoveryOutcomeStatus.RECOVERED, 50_000,
                 NOW, "event_1"));
@@ -146,16 +150,21 @@ class RevenueRepositoryTest {
     @Test
     void auditEventRepositoryOrdersImmutableIncidentHistory() {
         RevenueIncident incident = persistIncident();
-        auditEvents.saveAndFlush(new AuditEvent(
+        auditEvents.append(new AuditEvent(
                 incident, NOW, "SENTINEL", "DETECTOR", "INCIDENT_DETECTED",
                 List.of("failure spike"), new BigDecimal("0.9000"),
                 "open incident", List.of(), null, null,
                 null, RevenueIncidentStatus.DETECTED, "created"));
 
-        assertThat(auditEvents.findAllByIncidentIncidentIdOrderByTimestampAsc(
-                incident.getIncidentId()))
+        assertThat(auditEvents.findTrail(incident.getIncidentId()))
                 .singleElement()
                 .satisfies(event -> assertThat(event.getAction()).isEqualTo("INCIDENT_DETECTED"));
+    }
+
+    private PolicyEvaluation policy(PolicyDecision decision) {
+        return new PolicyEvaluation(decision, List.of(new PolicyRuleResult(
+                "TEST_POLICY", RuleOutcome.PASS, "true", "==", "true", false,
+                "repository fixture")), "repository fixture");
     }
 
     @Test

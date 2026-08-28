@@ -8,6 +8,7 @@ import com.sentinel.core.config.GeminiProperties;
 import com.sentinel.core.error.InvalidModelResponseException;
 import com.sentinel.core.error.UpstreamServiceException;
 import com.sentinel.core.error.UpstreamTimeoutException;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -23,7 +24,9 @@ public class GeminiEmbeddingClient implements EmbeddingClient {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
-    public GeminiEmbeddingClient(GeminiProperties properties, HttpClient httpClient, ObjectMapper objectMapper) {
+    public GeminiEmbeddingClient(GeminiProperties properties,
+                                @Qualifier("geminiHttpClient") HttpClient httpClient,
+                                ObjectMapper objectMapper) {
         this.properties = properties;
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;

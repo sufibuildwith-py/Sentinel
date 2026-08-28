@@ -7,6 +7,7 @@ import com.sentinel.revenue.detection.FailureCluster;
 import com.sentinel.revenue.detection.FailureClusterKey;
 import com.sentinel.revenue.detection.PaymentStatistics;
 import com.sentinel.revenue.detection.StatisticsEngine;
+import com.sentinel.revenue.audit.AuditLogService;
 import com.sentinel.revenue.model.FindingSource;
 import com.sentinel.revenue.model.IncidentFinding;
 import com.sentinel.revenue.model.PaymentEvent;
@@ -16,6 +17,7 @@ import com.sentinel.revenue.repository.IncidentFindingRepository;
 import com.sentinel.revenue.repository.PaymentEventRepository;
 import com.sentinel.revenue.repository.RevenueIncidentRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -43,6 +45,24 @@ public class FailureClusteringService implements PaymentEventBatchListener {
     private final StatisticsEngine statisticsEngine;
     private final DetectionRuleEngine ruleEngine;
     private final DetectionProperties properties;
+    private final AuditLogService audit;
+
+    @Autowired
+    public FailureClusteringService(PaymentEventRepository paymentEvents,
+                                    RevenueIncidentRepository incidents,
+                                    IncidentFindingRepository findings,
+                                    StatisticsEngine statisticsEngine,
+                                    DetectionRuleEngine ruleEngine,
+                                    DetectionProperties properties,
+                                    AuditLogService audit) {
+        this.paymentEvents = paymentEvents;
+        this.incidents = incidents;
+        this.findings = findings;
+        this.statisticsEngine = statisticsEngine;
+        this.ruleEngine = ruleEngine;
+        this.properties = properties;
+        this.audit = audit;
+    }
 
     public FailureClusteringService(PaymentEventRepository paymentEvents,
                                     RevenueIncidentRepository incidents,
@@ -50,12 +70,7 @@ public class FailureClusteringService implements PaymentEventBatchListener {
                                     StatisticsEngine statisticsEngine,
                                     DetectionRuleEngine ruleEngine,
                                     DetectionProperties properties) {
-        this.paymentEvents = paymentEvents;
-        this.incidents = incidents;
-        this.findings = findings;
-        this.statisticsEngine = statisticsEngine;
-        this.ruleEngine = ruleEngine;
-        this.properties = properties;
+        this(paymentEvents, incidents, findings, statisticsEngine, ruleEngine, properties, null);
     }
 
     @Override
@@ -80,7 +95,7 @@ public class FailureClusteringService implements PaymentEventBatchListener {
                 .max(Comparator.naturalOrder()).orElseThrow();
         List<PaymentEvent> candidates = paymentEvents
                 .findAllByTimestampGreaterThanEqualAndTimestampLessThanOrderByTimestampAsc(
-                        first.minus(properties.clusterWindow()), last.plusNanos(1));
+                        first.minus(properties.clusterWindow()), last.plusMillis(1));
 
         Set<String> existingFingerprints = incidents.findAll().stream()
                 .flatMap(incident -> incident.getEvidence().stream())
@@ -215,6 +230,12 @@ public class FailureClusteringService implements PaymentEventBatchListener {
                 + "all %d detection rules passed.".formatted(decision.rules().size());
         findings.saveAndFlush(new IncidentFinding(
                 incident, FindingSource.DETECTOR, summary, null, evidence, cluster.windowEnd()));
+        if (audit != null) {
+            audit.append(incident, "DETECTOR", null, "INCIDENT_DETECTED", evidence, null,
+                    summary, decision.rules().stream().map(result -> result.evidenceLine()).toList(),
+                    "DETECTED", null, RevenueIncidentStatus.DETECTED,
+                    statistics.amountAtRiskMinor() + " minor units at risk");
+        }
         return incident;
     }
 

@@ -1,4 +1,38 @@
 sentinel:
+  razorpay:
+    enabled: ${RAZORPAY_ENABLED:false}
+    key-id: ${RAZORPAY_KEY_ID:}
+    key-secret: ${RAZORPAY_KEY_SECRET:}
+    base-url: ${RAZORPAY_BASE_URL:https://api.razorpay.com}
+    connect-timeout: 2s
+    request-timeout: 5s
+    action-expiry: 30m
+    link-expiry: 24h
+    maximum-attempts: 3
+    circuit-breaker-failure-rate: 50
+    circuit-breaker-minimum-calls: 3
+    circuit-breaker-window-size: 6
+    circuit-breaker-open-duration: 30s
+    notifications-enabled: false
+    webhook:
+      secret: ${RAZORPAY_WEBHOOK_SECRET:}
+  policy:
+    auto-confidence-threshold: 0.85
+    maximum-auto-amount-minor: 100000
+    maximum-attempts: 3
+    per-customer-action-limit: 2
+    maximum-risk-score: 0.70
+    action-ttl: 30m
+    allowed-strategies:
+      - ALTERNATIVE_PAYMENT_LINK
+      - DEFERRED_RETRY
+      - RECOVERY_REMINDER
+      - WAIT_FOR_PROVIDER
+    paid-or-refunded-statuses:
+      - CAPTURED
+      - AUTHORIZED
+      - PAID
+      - REFUNDED
   investigation:
     timeout: 5s
     memory-top-k: 5

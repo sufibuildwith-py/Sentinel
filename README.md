@@ -94,21 +94,22 @@ This baseline must continue working while the platform is expanded. The revenue 
 
 The Java backend remains the system of record. PostgreSQL is the only required infrastructure service. The dashboard is a separate Next.js and TypeScript application.
 
-## Status: Phase 4 of 10 complete
- 
+## Status: Phase 9 of 10 complete
+
 | Phase | Focus | Status | Outcome |
 |---|---|---|---|
-| 1 | Sentinel Core & project hygiene | ✅ Complete | Extensible core; original `/investigate` flow untouched |
-| 2 | Revenue domain & persistence | ✅ Complete | Normalized payment/incident data in PostgreSQL, Flyway-migrated |
-| 3 | Detection & incident clustering | ✅ Complete | Explainable revenue incidents, zero LLM calls |
-| 4 | Agentic investigation & memory | ✅ Complete | Evidence-backed root cause, validated structured output, historical memory |
-| 5 | Recovery planning, policy & audit | ⏳ Next | Governed AUTO / HUMAN / DENY decisions |
-| 6 | Razorpay Test Mode execution | Planned | Real Payment Link recovery actions |
-| 7 | Outcome loop & revenue measurement | Planned | Webhook-driven outcomes, recovered-revenue metrics |
-| 8 | Operational dashboard | Planned | Full workflow visible without Postman |
-| 9 | Evaluation & reliability | Planned | Measured quality, safe failure behaviour |
-| 10 | Integration, release & submission | Planned | Reproducible, demo-ready release |
- 
+| 1 | Sentinel Core and project hygiene | Complete | Extensible core without breaking `/investigate` |
+| 2 | Revenue domain and persistence | Complete | Normalized payment and incident data in PostgreSQL |
+| 3 | Detection and incident clustering | Complete | Explainable revenue incidents created without an LLM |
+| 4 | Agentic investigation and memory | Complete | Evidence-backed root cause with validated structured output |
+| 5 | Recovery planning, policy, and audit | Complete | Governed AUTO/HUMAN/DENY decisions |
+| 6 | Razorpay Test Mode execution | Complete | Idempotent Test Mode Payment Link execution with reconciliation |
+| 7 | Outcome loop and revenue measurement | Complete | Signed idempotent outcomes and reconciled Test Mode metrics |
+| 8 | Operational dashboard | Complete | Complete workflow visible without relying on Postman |
+| 9 | Evaluation, testing, and resilience | Complete | Reproducible quality, safety, and failure evidence |
+| 10 | Integration, release, and submission | Next | Reproducible Buildathon-ready release and demo |
+
+---
 
 ## Phase 1 — Sentinel Core and project hygiene
 
@@ -394,6 +395,47 @@ A diagnosed incident produces a recovery proposal and an explainable AUTO/HUMAN/
 - Replaying the same request cannot create a second active recovery.
 - The full decision history can be reconstructed from the audit log.
 
+### Phase 5 implementation notes
+
+- `POST /api/v1/revenue/incidents/{id}/plan` invokes
+  `RecoveryPlannerAgent`, persists its proposal, evaluates mandatory stops,
+  evaluates the Easy Rules allow gates, persists every rule result, and only
+  then creates a guarded `RecoveryAction`. Planning never starts execution.
+- Mandatory stops are a dedicated first pass. Already recovered/paid payments,
+  expired proposals, exhausted attempts, unacceptable risk, and duplicate-charge
+  signals return `DENY` without evaluating the permissive rules.
+- Easy Rules `RuleListener` captures each permissive rule's PASS/FAIL result,
+  actual value, comparison, threshold, and explanation. Confidence or amount
+  failures produce `HUMAN`; unsafe payment state, an existing active recovery,
+  or a non-allowlisted strategy produces `DENY`; all rules passing produces
+  `AUTO`.
+- Flyway migration `V3__enforce_recovery_and_audit_guards.sql` adds a PostgreSQL
+  partial unique index over active action statuses. Concurrent inserts therefore
+  cannot create two active recoveries for the same incident. It also installs a
+  database trigger that rejects updates and deletes against `audit_events`.
+- `AuditEventRepository` exposes only `append` and chronological `findTrail`
+  operations—no general save, update, or delete surface. Detection, agent
+  results, state changes, proposals, every policy rule, decisions, actions, and
+  human decisions are represented as immutable events.
+- Human decisions require a non-blank persisted actor and reason through:
+  `POST /api/v1/revenue/actions/{actionId}/approve` and
+  `POST /api/v1/revenue/actions/{actionId}/reject`.
+- `GET /api/v1/revenue/incidents/{id}/audit-trail` returns the decision history
+  as a chronological human-readable story, including the complete policy trace.
+
+Policy settings are externalized under `sentinel.policy`:
+
+| Property | Default | Meaning |
+| --- | ---: | --- |
+| `auto-confidence-threshold` | `0.85` | Minimum confidence for autonomous approval |
+| `maximum-auto-amount-minor` | `100000` | Maximum value eligible for autonomous approval |
+| `maximum-attempts` | `3` | Mandatory stop boundary for attempts |
+| `per-customer-action-limit` | `2` | Maximum prior actions before human review |
+| `maximum-risk-score` | `0.70` | Mandatory risk-score ceiling |
+| `action-ttl` | `30m` | Proposal validity window |
+| `allowed-strategies` | Four bounded strategies | Strategies eligible to proceed |
+| `paid-or-refunded-statuses` | `CAPTURED`, `AUTHORIZED`, `PAID`, `REFUNDED` | Payment states that cannot be recovered again |
+
 ---
 
 ## Phase 6 — Razorpay Test Mode execution
@@ -425,6 +467,87 @@ An approved low-risk action creates a real Razorpay Test Mode Payment Link exact
 - Razorpay timeouts and errors leave the action in a safe recoverable state.
 - Repeated execution requests do not create duplicate links.
 
+### Phase 6 implementation notes
+
+- `POST /api/v1/revenue/incidents/{incidentId}/execute` executes only an
+  `ALTERNATIVE_PAYMENT_LINK` action with persisted `AUTO_APPROVED` permission
+  or a HUMAN action that has reached `APPROVED` with `approvedAt` recorded.
+- One action targets one deterministic failed payment, one masked customer,
+  one currency, and that payment's exact minor-unit amount. Other incident
+  payments are recorded as outside the Phase 6 action scope.
+- The deterministic provider reference is `sntl_` plus the action UUID without
+  hyphens (37 characters). A PostgreSQL row lock serializes execution requests,
+  the reference is unique, and repeated requests return the stored resource.
+- Sentinel checks local payment state first. IDs beginning with `pay_` are also
+  fetched from Razorpay before link creation; authorized, captured, paid, or
+  refunded payments are stopped to avoid duplicate-charge risk.
+- Every create is preceded by a reference lookup. A timeout or ambiguous 5xx is
+  never blindly retried: Sentinel looks up the same reference and either
+  recovers the link or records `EXECUTION_UNCERTAIN`/`RETRY_PENDING`.
+- Safe reads retry bounded 429/temporary failures with exponential backoff and
+  jitter. Ordinary 4xx failures are non-retryable, response bodies are not
+  persisted, and the circuit breaker produces a sanitized retry-pending result.
+- Payment Links use `accept_partial=false`, bounded expiry, masked notes,
+  notifications off by default, and checkout options with UPI disabled while
+  cards and netbanking remain enabled for the UPI-outage recovery path.
+- Cancellation and notification adapter operations are available at
+  `POST /api/v1/revenue/actions/{actionId}/cancel` and
+  `POST /api/v1/revenue/actions/{actionId}/notify/{sms|email}`. Notifications
+  remain disabled unless explicitly enabled.
+- Execution claimed, payment verification, provider request, reconciliation,
+  success, uncertainty/retry, failure, and cancellation are append-only audit
+  events and appear in the existing incident audit-trail endpoint.
+
+Razorpay execution is disabled by default and rejects any `rzp_live_` key:
+
+| Environment variable | Default | Meaning |
+| --- | --- | --- |
+| `RAZORPAY_ENABLED` | `false` | Enables the Test Mode adapter |
+| `RAZORPAY_KEY_ID` | empty | Must begin with `rzp_test_` when enabled |
+| `RAZORPAY_KEY_SECRET` | empty | Read only by the provider adapter |
+| `RAZORPAY_BASE_URL` | `https://api.razorpay.com` | Override only for isolated tests |
+
+The remaining timeouts, expiry, retry, notification, and circuit-breaker
+settings are under `sentinel.razorpay.*` in `application.yml`. Razorpay Test
+Mode currently limits an account to 30 Payment Links, so cancel old demo links
+or use a fresh Test Mode account when the provider reports that limit.
+
+#### 60–90 second Test Mode demo
+
+```powershell
+$env:RAZORPAY_ENABLED="true"
+$env:RAZORPAY_KEY_ID="rzp_test_your_key"
+$env:RAZORPAY_KEY_SECRET="your_test_secret"
+mvn spring-boot:run
+
+$demo = Invoke-RestMethod -Method Post http://localhost:8080/api/v1/demo/inject/upi-outage
+$id = $demo.incidents[0].incidentId
+Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/revenue/incidents/$id/investigate"
+$plan = Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/revenue/incidents/$id/plan"
+if ($plan.policyDecision -eq "HUMAN") {
+  Invoke-RestMethod -Method Post -ContentType application/json -Body '{"actor":"demo-reviewer","reason":"Verified Test Mode demo"}' "http://localhost:8080/api/v1/revenue/actions/$($plan.actionId)/approve"
+}
+$first = Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/revenue/incidents/$id/execute"
+$second = Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/revenue/incidents/$id/execute"
+$first; $second; Invoke-RestMethod "http://localhost:8080/api/v1/revenue/incidents/$id/audit-trail"
+```
+
+Both execution responses must show the same provider ID/reference/short URL,
+and `mode` must be `TEST`. The second response reports `existing=true`.
+
+The optional live Test Mode smoke test is skipped by default. It creates one
+₹1.00 link only when explicitly enabled:
+
+```powershell
+$env:RAZORPAY_SMOKE="true"
+$env:RAZORPAY_KEY_ID="rzp_test_your_key"
+$env:RAZORPAY_KEY_SECRET="your_test_secret"
+mvn -Dtest=RazorpayTestModeSmokeTest test
+```
+
+Phase 6 does not process payment outcomes; webhook verification and revenue
+measurement remain Phase 7.
+
 ---
 
 ## Phase 7 — Outcome loop and revenue measurement
@@ -454,6 +577,72 @@ A completed Test Mode payment updates the action, closes or advances the inciden
 - Duplicate events return safely without duplicate financial updates.
 - Recovered-revenue totals reconcile with individual outcomes.
 - The closed loop works: detect → diagnose → plan → guard → act → observe → measure.
+
+### Phase 7 implementation notes
+
+- `POST /api/v1/webhooks/razorpay` receives the exact request bytes. Sentinel
+  verifies `X-Razorpay-Signature` with HMAC-SHA256 and constant-time comparison
+  before parsing JSON. `X-Razorpay-Event-Id` is mandatory after signature
+  validation.
+- Subscribe the Test Mode webhook to `payment_link.paid`,
+  `payment_link.partially_paid`, and `payment_link.cancelled` only. Configure
+  the endpoint secret as `RAZORPAY_WEBHOOK_SECRET`; it is never returned,
+  logged, audited, persisted, or passed to an LLM.
+- Razorpay delivery is treated as at-least-once and potentially out of order.
+  The event-ID database constraint and locked action row make duplicate and
+  concurrent delivery idempotent. Paid is terminal, cumulative partial amounts
+  only increase, cancellation cannot reverse paid, and a later verified paid
+  event can supersede an earlier cancellation.
+- Events match only `RecoveryAction.externalResourceId` (the Razorpay Payment
+  Link ID). Customer details, descriptions, phones, emails, and reference text
+  are never used as identity.
+- Sentinel stores the event ID/type, link ID, SHA-256 payload digest, timestamps,
+  disposition, and a minimized non-customer payload projection. Invalid
+  signatures are represented in a separate append-only security table using
+  only the request digest, timestamp, header presence, and safe reason.
+- The normal webhook path never fetches Razorpay. It updates the current outcome
+  projection transactionally and responds immediately; provider reconciliation
+  remains an explicit Phase 6 operation.
+
+`GET /api/v1/revenue/metrics` returns:
+
+| Metric | Definition |
+| --- | --- |
+| Revenue at risk | Sum of persisted incident `amountAtRiskMinor` |
+| Attempted recovery | Exact action amount after a Payment Link was created |
+| Recovered revenue | Latest verified cumulative `amount_paid` per outcome |
+| Recovery rate | Recovered revenue divided by attempted recovery, zero-safe |
+| Strategy performance | Attempted and recovered amounts grouped by the persisted plan strategy |
+
+Every response is labelled **Recovered Revenue — Test Mode / Synthetic
+Evaluation** and carries `mode: TEST`. Metrics read current outcome projections,
+not webhook-event rows, so partial and duplicate events cannot inflate totals.
+
+#### Manual signed-fixture test
+
+```powershell
+$secret = $env:RAZORPAY_WEBHOOK_SECRET
+$body = '{"event":"payment_link.paid","payload":{"payment_link":{"entity":{"id":"plink_REPLACE","amount":12345,"amount_paid":12345,"currency":"INR","status":"paid"}}}}'
+$hmac = [System.Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($secret))
+$signature = [Convert]::ToHexString($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($body))).ToLowerInvariant()
+Invoke-RestMethod -Method Post -ContentType application/json -Body $body `
+  -Headers @{'X-Razorpay-Signature'=$signature;'X-Razorpay-Event-Id'='manual_event_001'} `
+  http://localhost:8080/api/v1/webhooks/razorpay
+Invoke-RestMethod http://localhost:8080/api/v1/revenue/metrics
+```
+
+Replace the link ID and exact amount with the resource returned by Phase 6.
+Sending the same event ID again returns `DUPLICATE` with no metric change.
+
+For a real Test Mode flow, expose only the webhook endpoint over HTTPS, register
+that URL in the Razorpay Test Mode dashboard, and use the same dashboard secret
+as `RAZORPAY_WEBHOOK_SECRET`. Razorpay recommends a zrok tunnel for local demos
+when common tunnel services are unavailable. Never expose a local development
+database or management port through the tunnel.
+
+Known limitations: Phase 7 handles the three Payment Link lifecycle events
+needed for the buildathon, stores no full customer payload, performs no dashboard
+updates, and does not implement generic payment/order webhook families.
 
 ---
 
@@ -567,7 +756,7 @@ POST /api/v1/revenue/incidents/{id}/execute       # execute an approved action
 POST /api/v1/revenue/actions/{id}/approve         # human approval
 POST /api/v1/revenue/actions/{id}/reject          # human rejection
 GET  /api/v1/revenue/metrics                      # evaluation/recovery metrics
-GET  /api/v1/audit                                # audit timeline
+GET  /api/v1/revenue/incidents/{id}/audit-trail   # immutable incident timeline
 POST /api/v1/webhooks/razorpay                    # signed outcome events
 
 POST /api/v1/demo/reset                           # reset synthetic demo state
@@ -675,6 +864,49 @@ Sentinel Core
 └── Custom Domain SDK
 ```
 
+## Phase 8 dashboard
+
+The operational dashboard lives in `dashboard/` as a separate Next.js and TypeScript application. It never receives Razorpay credentials, webhook bodies, customer identifiers, or raw payment data. The Spring Boot backend remains the source of truth for incident state, policy decisions, execution, idempotency, and recovered-revenue measurement.
+
+### Run locally
+
+1. Start PostgreSQL and the Sentinel backend as described above. The backend listens on `http://localhost:8080` by default.
+2. Copy `dashboard/.env.example` to `dashboard/.env.local`. Keep `NEXT_PUBLIC_USE_FIXTURES=false` for the real demonstration.
+3. From `dashboard/`, run `npm install` and then `npm run dev`.
+4. Open `http://localhost:3000`.
+
+Only `NEXT_PUBLIC_SENTINEL_API_URL` belongs in the browser configuration. Razorpay keys and the webhook secret stay in backend environment variables.
+
+### Five-minute dashboard demo
+
+1. Open **Demo controls**, reset the synthetic state, and inject the UPI outage. The fixed labelled batch goes through real ingestion and rule-based detection.
+2. Open the created incident. Run **Investigation**, then inspect computed evidence and the root-cause confidence.
+3. Build the recovery plan. Read the individual mandatory-stop and allow-rule results in **Policy trace**.
+4. If the result is **HUMAN**, open **Approval queue**, provide an actor identity and reason, and approve or reject. For **AUTO**, continue directly.
+5. Execute the approved action once. Sentinel creates or safely recovers one Razorpay Test Mode Payment Link; replaying the request does not create another active action.
+6. Pay the Test Mode link. After Razorpay sends the signed webhook, use **Refresh**. While an incident is monitoring an outcome, the detail view polls modestly every eight seconds and labels that behavior explicitly.
+7. Open **Metrics & audit**. Confirm that recovered revenue advances exactly once and that detection, diagnosis, policy rule trace, approval, execution, webhook verification, and duplicate safety form one chronological story.
+
+Every financial surface is labelled **TEST MODE / SYNTHETIC EVALUATION**. The dashboard uses controlled refresh and narrow mutation invalidation; it does not claim to be a streaming interface.
+
+### Dashboard verification
+
+```bash
+cd dashboard
+npm run verify
+```
+
+This runs linting, strict TypeScript checking, focused workflow tests, and the production Next.js build. The primary desktop and narrow mobile layouts are designed for keyboard and touch use; `Cmd/Ctrl+K` opens navigation, `Escape` closes dialogs, focus states are visible, and reduced-motion preferences are honored globally.
+
+### Dashboard references
+
+- [Next.js documentation](https://nextjs.org/docs)
+- [shadcn/ui Sidebar](https://ui.shadcn.com/docs/components/base/sidebar) and [Chart](https://ui.shadcn.com/docs/components/base/chart)
+- [TanStack Query](https://tanstack.com/query/latest/docs/framework/react/overview)
+- [Motion for React](https://motion.dev/docs/react) and [reduced-motion accessibility](https://motion.dev/docs/react-accessibility)
+- [Lucide React](https://lucide.dev/guide/react)
+- [Radix accessibility guidance](https://www.radix-ui.com/primitives/docs/overview/accessibility)
+
 ## Engineering references
 
 Phase 1 follows primary documentation and representative open-source implementations:
@@ -685,6 +917,20 @@ Phase 1 follows primary documentation and representative open-source implementat
 - [Java 17 HTTP client timeouts](https://docs.oracle.com/en/java/javase/17/docs/api/java.net.http/java/net/http/HttpClient.Builder.html)
 - [Google Gen AI Java SDK examples](https://github.com/googleapis/java-genai)
 - [Spring PetClinic reference application](https://github.com/spring-projects/spring-petclinic)
+- [Razorpay Payment Links API](https://razorpay.com/docs/api/payments/payment-links/)
+- [Create Standard Payment Link](https://razorpay.com/docs/api/payments/payment-links/create-standard/)
+- [Fetch Payment Links by reference ID](https://razorpay.com/docs/api/payments/payment-links/fetch-all-standard/)
+- [Customise Payment Link payment methods](https://razorpay.com/docs/api/payments/payment-links/customise-payment-methods/)
+- [Razorpay API errors and rate limiting](https://razorpay.com/docs/api/understand/)
+- [Official Razorpay Java SDK reference](https://github.com/razorpay/razorpay-java)
+- [Resilience4j](https://github.com/resilience4j/resilience4j)
+- [WireMock](https://wiremock.org/docs/spring-boot/)
+- [Testcontainers PostgreSQL](https://java.testcontainers.org/modules/databases/postgres/)
+- [Razorpay Test webhook validation](https://razorpay.com/docs/webhooks/validate-test/)
+- [Razorpay webhook best practices](https://razorpay.com/docs/webhooks/best-practices/)
+- [Razorpay Payment Link webhook payloads](https://razorpay.com/docs/webhooks/payment-links/)
+- [Razorpay Payment Link states](https://razorpay.com/docs/payments/payment-links/states/)
+- [zrok local tunnel](https://zrok.io/)
 
 ## License
 

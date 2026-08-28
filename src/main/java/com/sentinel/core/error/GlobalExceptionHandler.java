@@ -19,6 +19,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import com.sentinel.revenue.webhook.InvalidWebhookSignatureException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
@@ -68,6 +69,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<Object> handleIllegalArgument(IllegalArgumentException exception, HttpServletRequest request) {
         return response(HttpStatus.BAD_REQUEST, "INVALID_ARGUMENT", exception.getMessage(),
+                request.getRequestURI(), List.of());
+    }
+
+    @ExceptionHandler(InvalidWebhookSignatureException.class)
+    ResponseEntity<Object> handleInvalidWebhookSignature(InvalidWebhookSignatureException exception,
+                                                          HttpServletRequest request) {
+        return response(HttpStatus.UNAUTHORIZED, "INVALID_WEBHOOK_SIGNATURE",
+                "Webhook signature validation failed", request.getRequestURI(), List.of());
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    ResponseEntity<Object> handleIllegalState(IllegalStateException exception, HttpServletRequest request) {
+        return response(HttpStatus.CONFLICT, "STATE_CONFLICT", exception.getMessage(),
                 request.getRequestURI(), List.of());
     }
 

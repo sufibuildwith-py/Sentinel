@@ -65,4 +65,33 @@ public class RecoveryOutcome {
     public long getRecoveredAmountMinor() { return recoveredAmountMinor; }
     public Instant getOccurredAt() { return occurredAt; }
     public String getSourceEventId() { return sourceEventId; }
+
+    public boolean isTerminalPaid() { return status == RecoveryOutcomeStatus.RECOVERED; }
+
+    public boolean applyPartial(long cumulativeAmountMinor, Instant at, String eventId) {
+        if (isTerminalPaid() || status == RecoveryOutcomeStatus.STOPPED
+                || cumulativeAmountMinor <= recoveredAmountMinor) return false;
+        this.status = RecoveryOutcomeStatus.PARTIALLY_RECOVERED;
+        this.recoveredAmountMinor = cumulativeAmountMinor;
+        this.occurredAt = at;
+        this.sourceEventId = eventId;
+        return true;
+    }
+
+    public boolean applyRecovered(long cumulativeAmountMinor, Instant at, String eventId) {
+        if (isTerminalPaid()) return false;
+        this.status = RecoveryOutcomeStatus.RECOVERED;
+        this.recoveredAmountMinor = cumulativeAmountMinor;
+        this.occurredAt = at;
+        this.sourceEventId = eventId;
+        return true;
+    }
+
+    public boolean applyCancelled(Instant at, String eventId) {
+        if (isTerminalPaid()) return false;
+        this.status = RecoveryOutcomeStatus.STOPPED;
+        this.occurredAt = at;
+        this.sourceEventId = eventId;
+        return true;
+    }
 }

@@ -11,6 +11,7 @@ import com.sentinel.core.error.UpstreamServiceException;
 import com.sentinel.core.error.UpstreamTimeoutException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -31,7 +32,7 @@ public class GeminiLlmClient implements LlmClient {
 
     public GeminiLlmClient(
             GeminiProperties properties,
-            HttpClient httpClient,
+            @Qualifier("geminiHttpClient") HttpClient httpClient,
             ObjectMapper objectMapper,
             Validator validator
     ) {

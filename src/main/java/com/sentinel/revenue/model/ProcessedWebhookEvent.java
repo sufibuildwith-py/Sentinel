@@ -45,6 +45,18 @@ public class ProcessedWebhookEvent {
     @Column(name = "signature_valid", nullable = false)
     private boolean signatureValid;
 
+    @Column(name = "provider_link_id", length = 128)
+    private String providerLinkId;
+
+    @Column(name = "payload_digest", length = 64)
+    private String payloadDigest;
+
+    @Column(nullable = false, length = 32)
+    private String disposition = "RECEIVED";
+
+    @Column(name = "processing_error", length = 64)
+    private String processingError;
+
     protected ProcessedWebhookEvent() {
     }
 
@@ -66,4 +78,25 @@ public class ProcessedWebhookEvent {
     public Instant getProcessedAt() { return processedAt; }
     public Map<String, Object> getRawPayload() { return Map.copyOf(rawPayload); }
     public boolean isSignatureValid() { return signatureValid; }
+    public String getProviderLinkId() { return providerLinkId; }
+    public String getPayloadDigest() { return payloadDigest; }
+    public String getDisposition() { return disposition; }
+    public String getProcessingError() { return processingError; }
+
+    public static ProcessedWebhookEvent received(String eventId, String digest, Instant receivedAt) {
+        ProcessedWebhookEvent event = new ProcessedWebhookEvent(eventId, "PENDING", receivedAt,
+                null, Map.of(), true);
+        event.payloadDigest = digest;
+        return event;
+    }
+
+    public void complete(String eventType, String providerLinkId, Map<String, Object> minimizedPayload,
+                         String disposition, String processingError, Instant processedAt) {
+        this.eventType = eventType;
+        this.providerLinkId = providerLinkId;
+        this.rawPayload = minimizedPayload == null ? new LinkedHashMap<>() : new LinkedHashMap<>(minimizedPayload);
+        this.disposition = disposition;
+        this.processingError = processingError;
+        this.processedAt = processedAt;
+    }
 }

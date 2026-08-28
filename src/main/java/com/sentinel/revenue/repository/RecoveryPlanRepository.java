@@ -7,5 +7,5 @@ import java.util.List;
 import java.util.UUID;
 
 public interface RecoveryPlanRepository extends JpaRepository<RecoveryPlan, UUID> {
-    List<RecoveryPlan> findAllByIncidentIncidentId(UUID incidentId);
+    List<RecoveryPlan> findAllByIncidentIncidentIdOrderByCreatedAtDesc(UUID incidentId);
 }

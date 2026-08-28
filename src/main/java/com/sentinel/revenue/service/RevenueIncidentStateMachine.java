@@ -45,17 +45,22 @@ public final class RevenueIncidentStateMachine {
         transitions.put(RevenueIncidentStatus.PLANNING,
                 EnumSet.of(RevenueIncidentStatus.POLICY_REVIEW));
         transitions.put(RevenueIncidentStatus.POLICY_REVIEW,
-                EnumSet.of(RevenueIncidentStatus.APPROVED, RevenueIncidentStatus.HUMAN_REVIEW));
+                EnumSet.of(RevenueIncidentStatus.APPROVED, RevenueIncidentStatus.HUMAN_REVIEW,
+                        RevenueIncidentStatus.STOPPED));
         transitions.put(RevenueIncidentStatus.APPROVED,
-                EnumSet.of(RevenueIncidentStatus.EXECUTING));
+                EnumSet.of(RevenueIncidentStatus.EXECUTING, RevenueIncidentStatus.STOPPED,
+                        RevenueIncidentStatus.FAILED));
         transitions.put(RevenueIncidentStatus.HUMAN_REVIEW,
-                EnumSet.of(RevenueIncidentStatus.EXECUTING));
+                EnumSet.of(RevenueIncidentStatus.APPROVED, RevenueIncidentStatus.STOPPED));
         transitions.put(RevenueIncidentStatus.EXECUTING,
-                EnumSet.of(RevenueIncidentStatus.MONITORING));
+                EnumSet.of(RevenueIncidentStatus.MONITORING,
+                        RevenueIncidentStatus.FAILED, RevenueIncidentStatus.STOPPED));
         transitions.put(RevenueIncidentStatus.MONITORING,
                 EnumSet.of(RevenueIncidentStatus.RECOVERED,
                         RevenueIncidentStatus.FAILED,
                         RevenueIncidentStatus.STOPPED));
+        transitions.put(RevenueIncidentStatus.STOPPED,
+                EnumSet.of(RevenueIncidentStatus.RECOVERED));
         return Map.copyOf(transitions);
     }
 }

@@ -7,7 +7,12 @@ public enum RecoveryActionStatus {
     APPROVED,
     REJECTED,
     EXECUTING,
+    RETRY_PENDING,
+    EXECUTION_UNCERTAIN,
     EXECUTED,
+    PARTIALLY_RECOVERED,
+    RECOVERED,
+    CANCELLED,
     FAILED,
     STOPPED
 }
