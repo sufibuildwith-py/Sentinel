@@ -56,8 +56,24 @@
   .selected-glow { position: relative; overflow: hidden; }
   .selected-glow::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .65; background: radial-gradient(380px circle at var(--pointer-x, 50%) var(--pointer-y, 50%), #3182ff18, transparent 52%); }
   .status-dot { box-shadow: 0 0 0 4px #3182ff16; }
+  .pitch-canvas { background: #f5f7fb; background-image: radial-gradient(circle at 12% 8%, #dbeafe 0, transparent 28%), radial-gradient(circle at 88% 18%, #e0f2fe 0, transparent 24%), linear-gradient(180deg, #f8fafc 0%, #f1f5f9 46%, #f8fafc 100%); }
+  .pitch-glass { position: relative; overflow: hidden; border: 1px solid rgb(255 255 255 / .86); background: rgb(255 255 255 / .62); box-shadow: 0 22px 70px rgb(15 23 42 / .09), inset 0 1px rgb(255 255 255 / .8); backdrop-filter: blur(24px) saturate(140%); }
+  .pitch-glass::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(125deg, rgb(255 255 255 / .52), transparent 32%, transparent 70%, rgb(255 255 255 / .24)); }
+  .pitch-spotlight::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity .35s ease; background: radial-gradient(320px circle at var(--spot-x, 50%) var(--spot-y, 50%), rgb(37 99 235 / .12), transparent 58%); }
+  .pitch-spotlight:hover::before { opacity: 1; }
+  .pitch-window { transform: perspective(1400px) rotateY(-2deg) rotateX(1deg); }
+  .pitch-grid { background-image: linear-gradient(rgb(148 163 184 / .09) 1px, transparent 1px), linear-gradient(90deg, rgb(148 163 184 / .09) 1px, transparent 1px); background-size: 28px 28px; }
+  .pitch-dark-grid { background-image: linear-gradient(rgb(255 255 255 / .035) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .035) 1px, transparent 1px); background-size: 34px 34px; }
+  .pitch-orb { position: absolute; border-radius: 9999px; filter: blur(1px); pointer-events: none; }
+  .pitch-orb-one { width: 34rem; height: 34rem; left: -12rem; top: 4rem; background: radial-gradient(circle, rgb(147 197 253 / .32), transparent 68%); }
+  .pitch-orb-two { width: 38rem; height: 38rem; right: -13rem; bottom: -6rem; background: radial-gradient(circle, rgb(165 243 252 / .28), transparent 68%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+@media (max-width: 768px) {
+  .pitch-window { transform: none; }
+  .pitch-spotlight::before { display: none; }
 }
