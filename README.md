@@ -1,110 +1,135 @@
-Copyright © 2026 Sufiyan Khan. Released under the [MIT License](LICENSE).
+<div align="center">
+
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=26&duration=2800&pause=1200&color=2A4066&center=true&vCenter=true&width=760&lines=AI+proposes.+Evidence+supports.;Policy+decides.+Tools+execute.;Outcomes+teach." alt="Typing SVG" />
 
 # Sentinel
 
-[![Release proof](https://github.com/sufibuildwith-py/Sentinel/actions/workflows/phase9-proof.yml/badge.svg)](https://github.com/sufibuildwith-py/Sentinel/actions/workflows/phase9-proof.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Java 17](https://img.shields.io/badge/Java-17-007396.svg)](https://adoptium.net/temurin/releases/?version=17)
-
 **A governed multi-agent revenue-recovery platform with deterministic financial guardrails.**
 
-The fixed-seed Phase 9 proof contains 464 labelled synthetic/Test Mode scenarios: policy compliance is **432/432**, execution eligibility is **464/464**, and unsafe autonomous executions, duplicate financial effects, invalid signatures accepted, approval bypasses, and report leaks are all **0**. An already-paid payment is denied by mandatory policy even when model confidence is high. These are deterministic evaluation results—not production revenue claims—and can be regenerated from the checked-in harness.
+[![Release proof](https://github.com/sufibuildwith-py/Sentinel/actions/workflows/phase9-proof.yml/badge.svg)](https://github.com/sufibuildwith-py/Sentinel/actions/workflows/phase9-proof.yml)
+![Java](https://img.shields.io/badge/Java-17-007396?logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3-6DB33F?logo=springboot&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
+![Mode](https://img.shields.io/badge/Money%20Movement-Test%20Mode%20Only-critical)
+![Policy compliance](https://img.shields.io/badge/Policy%20Compliance-100%25%20(432%2F432)-brightgreen)
+![Safety gates](https://img.shields.io/badge/Zero--Tolerance%20Safety%20Gates-8%2F8%20Passed-brightgreen)
+![License](https://img.shields.io/badge/License-All%20Rights%20Reserved-lightgrey)
 
-Start with [SETUP.md](SETUP.md) for the under-ten-line Docker demo, [ARCHITECTURE.md](ARCHITECTURE.md) for the full pipeline, and [evaluation/README.md](evaluation/README.md) for metric definitions and limitations.
+Built for the **Razorpay AI Revenue Recovery** track — Java 17 · Spring Boot 3 · PostgreSQL · Next.js
 
-Sentinel detects operational problems, investigates their causes, proposes bounded interventions, executes approved actions through external tools, observes outcomes, and learns from previous incidents.
+[Watch the 90-second demo](#see-it-work) · [Read the proof](#the-proof-phase-9) · [Run it yourself](#run-it-in-one-command) · [Full architecture](ARCHITECTURE.md)
 
-Its first complete domain is **Sentinel Revenue Intelligence**, a Razorpay Test Mode revenue-recovery system built around one principle:
+</div>
+
+---
+
+## The pitch
+
+When a payment fails at scale — a bank's UPI degrading, a provider outage, a spike in one failure code — real revenue is lost. Most "AI revenue recovery" demos are a chatbot that reads the failure and guesses a fix. **Sentinel doesn't let an AI touch money on a guess.**
 
 > **AI proposes. Evidence supports. Policy decides. Tools execute. Outcomes teach.**
 
-This README records the completed ten-phase development plan and the independently reproducible evidence for the release.
+Every recovery Sentinel attempts passes through a **separate, fully deterministic policy engine** — no AI, no ambiguity — that returns `AUTO`, `HUMAN`, or `DENY`. An already-paid payment is denied even when the AI's confidence is high. Nothing is executed without a persisted, auditable reason.
 
-## Product objective
+### The headline numbers
 
-The finished revenue-recovery workflow must demonstrate the complete loop:
+| Proof | Result |
+|---|---|
+| Deterministic evaluation scenarios | **464**, across 29 categories, fixed seed |
+| Policy compliance against the labelled oracle | **432 / 432 (100%)** |
+| Execution-eligibility compliance | **464 / 464 (100%)** |
+| Unsafe autonomous executions | **0** |
+| Duplicate financial effects | **0** |
+| Invalid webhook signatures accepted | **0** |
+| Approval-gate bypasses | **0** |
+| Zero-tolerance safety gates passed | **8 / 8** |
 
-```text
-Payment events
-      ↓
-Detect revenue anomaly
-      ↓
-Cluster failures into an incident
-      ↓
-Investigate with agents, tools, and historical memory
-      ↓
-Diagnose root cause with evidence and confidence
-      ↓
-Propose a recovery strategy
-      ↓
-Apply deterministic policy gates
-      ↓
-Auto-execute, request approval, or deny
-      ↓
-Execute through Razorpay Test Mode
-      ↓
-Observe webhook outcome
-      ↓
-Measure recovered revenue and retain the audit trail
+These are **deterministic evaluation results, not production revenue claims** — regenerable on demand from the checked-in harness. See [what this proves and doesn't prove](#the-proof-phase-9).
+
+---
+
+## See it work
+
+> 🎥 *Demo recording goes here* — a 60–90 second capture of: injecting the UPI-outage scenario → investigation producing a root cause with evidence → the policy trace showing an `AUTO`/`HUMAN` decision → execution creating a real Razorpay Test Mode Payment Link → the webhook landing and recovered revenue updating live on the dashboard.
+>
+> The strongest single shot to include: filtering the evaluation dashboard for **`already paid`** and showing a **DENY** at high AI confidence — that's the moment that proves the guardrail is real.
+
+The full demo script, screen-by-screen, is in [SETUP.md](SETUP.md).
+
+---
+
+## Why this is different from an AI wrapper
+
+- **The AI never has execution authority.** It proposes a root cause and a recovery strategy — evidence-backed, schema-validated, with a confidence score. It cannot spend a rupee. A separate rules engine decides that, every time, with zero exceptions.
+- **Every safety claim is proven, not asserted.** A 464-scenario deterministic harness re-runs the real detection, policy, and webhook-verification code against an independent expected oracle on every build. If a change breaks a guarantee, CI fails — it doesn't ship silently.
+- **It fails safely, not silently.** Gemini down? Investigation still completes with a deterministic, lower-confidence finding. Razorpay slow? Bounded retries and reconciliation, never a blind retry that could double-create a resource.
+
+---
+
+## The loop
+
+```mermaid
+flowchart TD
+    A[Payment events] --> B[Deterministic detection<br/>— zero LLM calls]
+    B --> C[Cluster into a<br/>quantified Revenue Incident]
+    C --> D[Agentic investigation<br/>evidence + historical memory]
+    D --> E[Root cause + confidence<br/>+ recovery proposal]
+    E --> F{Deterministic<br/>Policy Engine}
+    F -->|AUTO| G[Execute via<br/>Razorpay Test Mode]
+    F -->|HUMAN| H[Approval queue]
+    F -->|DENY| I[Blocked — audited,<br/>no exceptions]
+    H -->|approved| G
+    G --> J[Signed webhook outcome]
+    J --> K[Recovered revenue +<br/>historical memory update]
 ```
 
-The project must remain domain-extensible. Sentinel Core owns reasoning, orchestration, memory, policy, tools, audit, and evaluation. The Revenue Recovery domain owns payments, failure detection, recovery strategies, financial guardrails, and Razorpay integration.
+Full system architecture, package structure, and data model: **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
-## Preserved engineering baseline
+---
 
-The original prototype provided:
+## Run it in one command
 
-- Java 17 and Spring Boot 3.3
-- `POST /investigate`
-- Gemini text generation
-- Gemini embeddings
-- Runbook ingestion
-- In-memory cosine-similarity retrieval
-- A basic retrieval-augmented diagnosis pipeline
-- Five sample engineering incident runbooks
-
-After Phase 1, the preserved investigation flow is:
-
-```text
-HTTP controller
-    → InvestigationService
-    → EmbeddingClient
-    → RunbookMemory
-    → LlmClient structured generation
-    → Diagnosis
+```bash
+git clone <this-repo>
+cd sentinel
+cp .env.example .env   # add your Gemini key; Razorpay Test Mode keys optional
+docker compose up --build
 ```
 
-This baseline must continue working while the platform is expanded. The revenue workflow will be added around an extracted Sentinel Core rather than replacing the existing project with a Razorpay-only application.
+That starts PostgreSQL, runs all Flyway migrations, health-checks the backend, and serves the dashboard at `localhost:3000`. Full nine-step setup and demo walkthrough: **[SETUP.md](SETUP.md)**.
 
-## Target architecture
+---
 
-```text
-                            SENTINEL CORE
-                ┌─────────────────────────────────┐
-                │ Agents · Orchestration · Memory │
-                │ Policy · Tools · Audit · Evals  │
-                └───────────────┬─────────────────┘
-                                │
-                     Revenue Recovery domain
-                ┌───────────────┴─────────────────┐
-                │ Events · Detection · Incidents  │
-                │ Analysis · Planning · Recovery  │
-                └───────────────┬─────────────────┘
-                                │
-                  Deterministic policy engine
-                     ┌──────────┼──────────┐
-                     ↓          ↓          ↓
-                   AUTO       HUMAN       DENY
-                     └──────────┬──────────┘
-                                ↓
-                     Razorpay Test Mode tools
-                                ↓
-                   Webhooks · Outcomes · Metrics
-```
+## The proof (Phase 9)
 
-The Java backend remains the system of record. PostgreSQL is the only required infrastructure service. The dashboard is a separate Next.js and TypeScript application.
+Sentinel ships with a **deterministic evaluation harness**, not just a test suite — it exists specifically to prove the safety claims above are true, reproducibly, on every build.
 
-## Status: Phase 10 of 10 complete
+- **464 labelled scenarios**, 29 categories, fixed seed `20260901` — same seed, byte-identical report, every time.
+- Every scenario runs through the **real** `DetectionRuleEngine`, `PolicyEngine`, and webhook HMAC verifier — nothing mocked at the decision layer.
+- **8 zero-tolerance gates** where a single failure fails CI: unsafe autonomous execution, duplicate financial effects, accepted invalid signatures, reversed paid outcomes, policy disagreement, approval bypass, sensitive-data leakage, same-seed drift.
+- Full metric definitions, confusion matrix, and the honest **"what this does and doesn't prove"** statement: **[evaluation/README.md](evaluation/README.md)**.
+- Live proof endpoints: `GET /api/v1/evaluation/report` · `POST /api/v1/evaluation/run` · dashboard at `/evaluation`.
+
+**What this doesn't prove:** production payment-success uplift, real merchant recovery rate, or workload capacity. Every money figure anywhere in this project is explicitly labelled **Test Mode / Synthetic Evaluation**.
+
+---
+
+## Tech stack
+
+Java 17 · Spring Boot 3.3 · PostgreSQL 16 · Flyway · Spring Data JPA · Easy Rules (policy + detection) · Resilience4j (circuit breakers) · Apache Commons Math (statistics) · Google Gemini (structured, schema-validated reasoning only) · Next.js + TypeScript (dashboard) · Testcontainers (real-Postgres testing, no H2 substitution) · Docker Compose
+
+---
+
+## Deliberate non-goals
+
+No fifteen-agent swarm. No Kubernetes. No Kafka without a demonstrated need. No custom ML anomaly model before the deterministic rules earned it. No real-money automation, ever. Deep and bounded beats broad and impressive-sounding.
+
+---
+
+<details>
+<summary><strong>Full ten-phase build log — expand for complete implementation notes, config tables, and endpoint-level detail</strong></summary>
+
+### Status: Phase 10 of 10 complete
 
 | Phase | Focus | Status | Outcome |
 |---|---|---|---|
@@ -119,14 +144,12 @@ The Java backend remains the system of record. PostgreSQL is the only required i
 | 9 | Evaluation, testing, and resilience | Complete | Reproducible quality, safety, and failure evidence |
 | 10 | Integration, release, and submission | Complete | One-command Compose release, verified docs, and release hygiene |
 
----
-
-## Phase 1 — Sentinel Core and project hygiene
+<details>
+<summary><strong>Phase 1 — Sentinel Core and project hygiene</strong></summary>
 
 **Goal:** Refactor the prototype into an extensible core while preserving existing behaviour.
 
-### Work
-
+**Work**
 - Keep Java 17, Maven, and Spring Boot; do not rewrite the backend in another language.
 - Remove generated Maven `target/` output from version control and add appropriate ignore rules.
 - Introduce core packages for agents, orchestration, memory, policy, audit, LLM clients, tools, and evaluation.
@@ -138,12 +161,9 @@ The Java backend remains the system of record. PostgreSQL is the only required i
 - Add request validation, consistent API errors, upstream timeouts, and safe configuration.
 - Add initial unit and controller tests while preserving `POST /investigate`.
 
-### Deliverable
+**Deliverable:** An extensible Sentinel Core with the original runbook-based investigation flow still working.
 
-An extensible Sentinel Core with the original runbook-based investigation flow still working.
-
-### Exit criteria
-
+**Exit criteria**
 - The existing investigation endpoint passes a regression test.
 - External model calls are behind interfaces and can be mocked.
 - Agents return structured results rather than unvalidated free-form text.
@@ -151,14 +171,14 @@ An extensible Sentinel Core with the original runbook-based investigation flow s
 
 **Current state:** Complete. The regression, validation, orchestration, similarity, structured-output, and agent-boundary tests run without live Gemini calls.
 
----
+</details>
 
-## Phase 2 — Revenue domain and persistence
+<details>
+<summary><strong>Phase 2 — Revenue domain and persistence</strong></summary>
 
 **Goal:** Establish the normalized data model and durable state needed by the recovery workflow.
 
-### Work
-
+**Work**
 - Add Spring Data JPA, PostgreSQL, Flyway, Bean Validation, and Spring Boot Test.
 - Create the normalized `PaymentEvent` model for both synthetic and Razorpay-derived data.
 - Create `RevenueIncident` with amount at risk, affected payments/customers, evidence, findings, plan, actions, and outcome.
@@ -172,42 +192,25 @@ DETECTED → INVESTIGATING → DIAGNOSED → PLANNING → POLICY_REVIEW
 
 - Create initial tables for payment events, incidents, findings, plans, actions, outcomes, audit events, processed webhooks, and historical incidents.
 - Add batch ingestion through `POST /api/v1/revenue/events/batch`.
-- Create a repeatable labelled dataset with 200–500 synthetic payment events.
-- Include UPI degradation, provider outage, normal failures, insufficient funds, abandonment, mixed degradation, already-paid, high-value, duplicate, and API-failure scenarios.
+- Create a repeatable labelled dataset with 200–500 synthetic payment events covering UPI degradation, provider outage, normal failures, insufficient funds, abandonment, mixed degradation, already-paid, high-value, duplicate, and API-failure scenarios.
 - Store money in the smallest currency unit and use safe numeric types.
 
-### Deliverable
+**Deliverable:** A batch of normalized payment events can be persisted and converted into durable revenue-domain state.
 
-A batch of normalized payment events can be persisted and converted into durable revenue-domain state.
-
-### Exit criteria
-
+**Exit criteria**
 - Migrations create a clean database from scratch.
 - Batch ingestion is validated and idempotent.
 - State-machine transitions reject invalid movement.
 - Synthetic datasets contain ground-truth labels and no real customer data.
 
-### Phase 2 implementation notes
+**Implementation notes**
+- PostgreSQL is the only persistence backend. Hibernate validates the schema; Flyway owns schema creation through `V1__create_revenue_core_tables.sql` and `V2__create_recovery_and_audit_tables.sql`.
+- All monetary values use `BIGINT` minor units (`amountMinor`, `amountAtRiskMinor`, and related recovery fields). Floating-point money is not used.
+- `POST /api/v1/revenue/events/batch` accepts an `events` array. It validates each event independently, persists valid rows, and returns `count`, `duplicatesSkipped`, and `validationErrors`. The database and service both enforce the `(paymentId, attemptNumber)` idempotency key.
+- `SyntheticPaymentDatasetGenerator` uses DataFaker with the fixed seed `20260827` to create 300 non-PII, ground-truth-labelled events, intentionally containing 15 duplicate rows.
+- The endpoint integration test posts that dataset twice: the first request persists 285 unique events; the second skips all 300.
 
-- PostgreSQL is the only persistence backend. Hibernate validates the schema;
-  Flyway owns schema creation through `V1__create_revenue_core_tables.sql` and
-  `V2__create_recovery_and_audit_tables.sql`.
-- All monetary values use `BIGINT` minor units (`amountMinor`,
-  `amountAtRiskMinor`, and related recovery fields). Floating-point money is not
-  used.
-- `POST /api/v1/revenue/events/batch` accepts an `events` array. It validates
-  each event independently, persists valid rows, and returns `count`,
-  `duplicatesSkipped`, and `validationErrors`. The database and service both
-  enforce the `(paymentId, attemptNumber)` idempotency key.
-- `SyntheticPaymentDatasetGenerator` uses DataFaker with the fixed seed
-  `20260827` to create 300 non-PII, ground-truth-labelled events. It covers all
-  ten scenarios in this phase and intentionally contains 15 duplicate rows.
-- The endpoint integration test posts that dataset twice: the first request is
-  expected to persist 285 unique events, and the second is expected to skip all
-  300 rows.
-
-To migrate an empty PostgreSQL database, set `SENTINEL_DB_URL`,
-`SENTINEL_DB_USERNAME`, and `SENTINEL_DB_PASSWORD`, then pass them to Flyway:
+To migrate an empty PostgreSQL database:
 
 ```powershell
 mvn flyway:migrate `
@@ -216,18 +219,16 @@ mvn flyway:migrate `
   "-Dflyway.password=$env:SENTINEL_DB_PASSWORD"
 ```
 
-`mvn clean verify` requires a running Docker-compatible container runtime. The
-repository and endpoint integration tests always use PostgreSQL 16 through
-Testcontainers; they do not substitute H2.
+`mvn clean verify` requires a running Docker-compatible container runtime. Integration tests always use PostgreSQL 16 through Testcontainers; they do not substitute H2.
 
----
+</details>
 
-## Phase 3 — Detection and incident clustering
+<details>
+<summary><strong>Phase 3 — Detection and incident clustering</strong></summary>
 
 **Goal:** Detect explainable revenue risk deterministically, without depending on an LLM.
 
-### Work
-
+**Work**
 - Compute overall, payment-method, and issuer/bank success rates.
 - Track failure-code distributions, retry frequency, value concentration, abandonment, and baseline deviation.
 - Make detection thresholds configurable: minimum volume, success-rate drop, baseline deviation, and amount at risk.
@@ -237,21 +238,15 @@ Testcontainers; they do not substitute H2.
 - Record exactly which rules and evidence caused an incident to be created.
 - Add demo injection endpoints for a clean reset and a repeatable UPI-outage scenario.
 
-### Deliverable
+**Deliverable:** Uploading a degraded payment batch automatically creates a clustered `RevenueIncident` with quantified revenue at risk.
 
-Uploading a degraded payment batch automatically creates a clustered `RevenueIncident` with quantified revenue at risk.
-
-### Exit criteria
-
+**Exit criteria**
 - Labelled anomaly scenarios are detected consistently.
 - Normal random failures do not exceed the agreed false-positive threshold.
 - Each incident explains the triggering rules and contributing events.
 - Detection works when Gemini is unavailable.
 
-### Phase 3 detection defaults
-
-All settings are externalized under `sentinel.detection` in
-`application.yml` and can be overridden with normal Spring Boot configuration:
+**Detection defaults** — externalized under `sentinel.detection` in `application.yml`:
 
 | Property | Default | Meaning |
 | --- | ---: | --- |
@@ -268,92 +263,56 @@ All settings are externalized under `sentinel.detection` in
 | `success-statuses` | `CAPTURED`, `AUTHORIZED` | Statuses counted as successful |
 | `merchant-metadata-key` | `merchantId` | Normalized-event metadata key used for clustering |
 
-An incident is created only when all four detection rules pass. Every rule
-records `PASS` or `FAIL`, its actual value, comparison operator, threshold, and
-unit. Failures are clustered by method, issuer/bank, error code, merchant, and
-time window before rules are evaluated.
+An incident is created only when **all four** detection rules pass. Every rule records `PASS`/`FAIL`, its actual value, comparison operator, threshold, and unit.
 
-Statistics use these explicit definitions:
+Statistics definitions:
+- **Retry frequency** — share of events with `attemptNumber > 1` or a positive `previousFailureCount`.
+- **Value concentration** — share of total value from the largest 10% of events in the cohort.
+- **Abandonment rate** — share of events with status `ABANDONED`.
+- **Baseline deviation** — `(rolling baseline success rate − current success rate) / baseline standard deviation`, via Apache Commons Math.
 
-- Retry frequency is the share of events with `attemptNumber > 1` or a positive
-  `previousFailureCount`.
-- Value concentration is the share of total value represented by the largest
-  10 percent of events in the cohort.
-- Abandonment rate is the share of events with status `ABANDONED`.
-- Baseline deviation is `(rolling baseline success rate - current success rate)
-  / baseline standard deviation`. Apache Commons Math calculates the rolling
-  mean and standard deviation.
-
-The repeatable live-demo flow is:
-
+Repeatable live-demo flow:
 ```text
 POST /api/v1/demo/reset
 POST /api/v1/demo/inject/upi-outage
 ```
+The injection endpoint generates and ingests 30 fixed-seed normalized events and runs the same statistics/clustering/rule services as the production batch endpoint — no LLM call, no canned response.
 
-The injection endpoint generates and ingests 30 fixed-seed normalized events,
-runs the same statistics, clustering, and rule services as the production batch
-endpoint, and returns the persisted incident summary. It does not call an LLM or
-return a canned detection response.
+</details>
 
----
-
-## Phase 4 — Agentic investigation and memory
+<details>
+<summary><strong>Phase 4 — Agentic investigation and memory</strong></summary>
 
 **Goal:** Produce a structured root-cause assessment grounded in computed evidence and historical incidents.
 
-### Work
+**Work**
+- Triage Agent selects the relevant tools and investigation path.
+- Payment Analyst examines method, issuer, error, retry, and time patterns.
+- Deterministic Pattern Analyzer and Customer Context tools — not every calculation is turned into an agent.
+- Runbook retrieval extended into historical incident memory: evidence, root cause, strategy, outcome, recovered amount, success rate.
+- Root Cause Agent combines detection evidence, analyst findings, context, and memory.
+- Validated structured output: root cause, confidence, evidence, alternative hypotheses.
+- Masks customer identifiers and excludes phone numbers, full email addresses, credentials, and raw payment details from prompts.
+- Falls back to deterministic findings when the LLM is unavailable; never authorizes recovery from an incomplete investigation.
 
-- Implement a Triage Agent that selects the relevant tools and investigation path.
-- Implement a Payment Analyst that examines method, issuer, error, retry, and time patterns.
-- Implement deterministic Pattern Analyzer and Customer Context tools instead of turning every calculation into an agent.
-- Extend runbook retrieval into historical incident memory containing evidence, root cause, strategy, outcome, recovered amount, and success rate.
-- Implement a Root Cause Agent that combines detection evidence, analyst findings, context, and memory.
-- Require validated structured output containing root cause, confidence, evidence, and alternative hypotheses.
-- Mask customer identifiers and exclude phone numbers, full email addresses, credentials, and raw payment details from prompts.
-- Fall back to deterministic findings when the LLM is unavailable; never authorize recovery from an incomplete investigation.
+**Deliverable:** An incident can move from `DETECTED` to `DIAGNOSED` with evidence, confidence, alternatives, and an auditable agent timeline.
 
-### Deliverable
-
-An incident can move from `DETECTED` to `DIAGNOSED` with evidence, confidence, alternatives, and an auditable agent timeline.
-
-### Exit criteria
-
+**Exit criteria**
 - Every diagnosis references visible evidence.
 - Invalid or incomplete LLM output is rejected safely.
 - The LLM receives only the minimum masked context required.
 - Agents cannot execute financial actions.
 - Root-cause accuracy is measurable against labelled scenarios.
 
-### Phase 4 implementation notes
+**Implementation notes**
+- `POST /api/v1/revenue/incidents/{id}/investigate` runs the real pipeline and permits only `DETECTED → INVESTIGATING → DIAGNOSED` — no plans, policy decisions, or execution side effects.
+- `TriageAgent` deterministically selects the payment investigation path. `PaymentAnalystAgent` invokes plain `PatternAnalyzer`/`CustomerContextTool` services computed from persisted records.
+- `HistoricalMemoryService` embeds stored `HistoricalIncident` content and uses cosine similarity. Recovery rate is `recoveredAmountMinor / evidenceSummary.amountAtRiskMinor`, reported as unavailable when that denominator is absent. Empty history returns no matches without calling the embedding provider.
+- `RootCauseAgent` requests strict incident-report JSON from Gemini, validates with Jakarta Bean Validation, retries invalid/incomplete output once. Resilience4j applies a circuit breaker and hard time limit. Two failed attempts produce a deterministic, explicitly LLM-unavailable diagnosis capped at `0.60` confidence.
+- `PromptContextBuilder` exposes masked aliases like `customer_0001`, never raw IDs — strips emails, phone numbers, UPI IDs, card-like values, and credential assignments before anything reaches `LlmClient`.
+- `PAYMENT_ANALYST` and `ROOT_CAUSE_AGENT` findings are persisted with evidence and confidence, preserving the visible investigation timeline.
 
-- `POST /api/v1/revenue/incidents/{id}/investigate` runs the real investigation
-  pipeline and permits only `DETECTED → INVESTIGATING → DIAGNOSED`. It does not
-  create plans, policy decisions, recovery actions, or execution side effects.
-- `TriageAgent` deterministically selects the payment investigation path.
-  `PaymentAnalystAgent` invokes the plain `PatternAnalyzer` and
-  `CustomerContextTool` services; their percentages, counts, rolling-baseline
-  deviation, retry totals, and historical recovery rate are computed from
-  persisted records.
-- `HistoricalMemoryService` embeds stored `HistoricalIncident` content and uses
-  cosine similarity. Recovery rate is derived as
-  `recoveredAmountMinor / evidenceSummary.amountAtRiskMinor`; it is reported as
-  unavailable when that real denominator is absent. An empty history returns no
-  matches without calling the embedding provider or raising an error.
-- `RootCauseAgent` requests the strict incident-report JSON shape from Gemini,
-  validates it with Jakarta Bean Validation, and retries invalid/incomplete
-  output once. Resilience4j applies a circuit breaker and a hard time limit. Two
-  failed attempts produce a deterministic, explicitly LLM-unavailable diagnosis
-  whose reduced confidence is 60 percent of the observed dominant failure
-  signature, capped at `0.60`.
-- `PromptContextBuilder` exposes counts and masked aliases such as
-  `customer_0001`, never raw customer/payment IDs. It removes email addresses,
-  phone numbers, UPI IDs, card-like values, and credential assignments before a
-  prompt reaches `LlmClient`.
-- `PAYMENT_ANALYST` and `ROOT_CAUSE_AGENT` findings are persisted with their
-  evidence and confidence, preserving the visible investigation timeline.
-
-Phase 4 settings are externalized under `sentinel.investigation`:
+**Settings** — externalized under `sentinel.investigation`:
 
 | Property | Default | Meaning |
 | --- | ---: | --- |
@@ -365,75 +324,42 @@ Phase 4 settings are externalized under `sentinel.investigation`:
 | `circuit-breaker-window-size` | `4` | Recent calls retained by the count-based window |
 | `circuit-breaker-open-duration` | `30s` | Delay before a provider health probe is allowed |
 
----
+</details>
 
-## Phase 5 — Recovery planning, policy, and audit
+<details>
+<summary><strong>Phase 5 — Recovery planning, policy, and audit</strong></summary>
 
 **Goal:** Convert a diagnosis into a bounded proposal and deterministic decision.
 
-### Work
+**Work**
+- Recovery Planner Agent uses root cause, confidence, customer context, historical strategy performance, and available tools.
+- Strategy set: `ALTERNATIVE_PAYMENT_LINK`, `DEFERRED_RETRY`, `RECOVERY_REMINDER`, `WAIT_FOR_PROVIDER`, `HUMAN_ESCALATION`, `NO_ACTION`.
+- Planner output is a proposal only — it never grants itself execution permission.
+- Deterministic Policy Engine returns `AUTO`, `HUMAN`, or `DENY`.
+- Gates: confidence, amount, payment status, active recovery, retry count, customer limit, strategy allowlist, duplicate-charge risk.
+- Mandatory stop rules for recovered payments, expired actions, maximum attempts, unacceptable risk, and possible duplicate charges.
+- Human approval/rejection workflow for high-value or uncertain actions.
+- Append-only audit event for every agent result, transition, proposal, rule evaluation, approval, action, and outcome.
 
-- Implement a Recovery Planner Agent using root cause, confidence, customer context, historical strategy performance, and available tools.
-- Support the initial strategy set:
+**Deliverable:** A diagnosed incident produces a recovery proposal and an explainable AUTO/HUMAN/DENY policy result.
 
-```text
-ALTERNATIVE_PAYMENT_LINK
-DEFERRED_RETRY
-RECOVERY_REMINDER
-WAIT_FOR_PROVIDER
-HUMAN_ESCALATION
-NO_ACTION
-```
-
-- Treat planner output as a proposal only; it never grants itself execution permission.
-- Build a deterministic Policy Engine that returns `AUTO`, `HUMAN`, or `DENY`.
-- Gate decisions by confidence, amount, payment status, active recovery, retry count, customer limit, strategy allowlist, and duplicate-charge risk.
-- Add mandatory stop rules for recovered payments, expired actions, maximum attempts, unacceptable risk, and possible duplicate charges.
-- Build the human approval and rejection workflow for high-value or uncertain actions.
-- Create an append-only audit event for every agent result, transition, proposal, rule evaluation, approval, action, and outcome.
-- Make each policy result explain which rules passed or failed.
-
-### Deliverable
-
-A diagnosed incident produces a recovery proposal and an explainable AUTO/HUMAN/DENY policy result.
-
-### Exit criteria
-
+**Exit criteria**
 - No action can bypass the Policy Engine.
 - Low-confidence and high-value cases require human review.
 - Already-paid and duplicate-risk cases are stopped.
 - Replaying the same request cannot create a second active recovery.
 - The full decision history can be reconstructed from the audit log.
 
-### Phase 5 implementation notes
+**Implementation notes**
+- `POST /api/v1/revenue/incidents/{id}/plan` invokes `RecoveryPlannerAgent`, persists its proposal, evaluates mandatory stops, evaluates Easy Rules allow gates, persists every rule result, and only then creates a guarded `RecoveryAction`. Planning never starts execution.
+- Mandatory stops are a dedicated first pass — already recovered/paid, expired, exhausted attempts, unacceptable risk, or duplicate-charge signals return `DENY` without evaluating the permissive rules.
+- Easy Rules `RuleListener` captures each rule's PASS/FAIL, actual value, comparison, threshold, and explanation. Confidence/amount failures → `HUMAN`; unsafe payment state, an existing active recovery, or non-allowlisted strategy → `DENY`; all rules passing → `AUTO`.
+- Flyway `V3__enforce_recovery_and_audit_guards.sql` adds a PostgreSQL **partial unique index** over active action statuses — concurrent inserts cannot create two active recoveries for the same incident. A database trigger rejects updates/deletes against `audit_events`.
+- `AuditEventRepository` exposes only `append` and chronological `findTrail` — no general save/update/delete surface.
+- Human decisions require a non-blank persisted actor and reason: `POST /api/v1/revenue/actions/{actionId}/approve` and `.../reject`.
+- `GET /api/v1/revenue/incidents/{id}/audit-trail` returns the full chronological, human-readable decision history including the complete policy trace.
 
-- `POST /api/v1/revenue/incidents/{id}/plan` invokes
-  `RecoveryPlannerAgent`, persists its proposal, evaluates mandatory stops,
-  evaluates the Easy Rules allow gates, persists every rule result, and only
-  then creates a guarded `RecoveryAction`. Planning never starts execution.
-- Mandatory stops are a dedicated first pass. Already recovered/paid payments,
-  expired proposals, exhausted attempts, unacceptable risk, and duplicate-charge
-  signals return `DENY` without evaluating the permissive rules.
-- Easy Rules `RuleListener` captures each permissive rule's PASS/FAIL result,
-  actual value, comparison, threshold, and explanation. Confidence or amount
-  failures produce `HUMAN`; unsafe payment state, an existing active recovery,
-  or a non-allowlisted strategy produces `DENY`; all rules passing produces
-  `AUTO`.
-- Flyway migration `V3__enforce_recovery_and_audit_guards.sql` adds a PostgreSQL
-  partial unique index over active action statuses. Concurrent inserts therefore
-  cannot create two active recoveries for the same incident. It also installs a
-  database trigger that rejects updates and deletes against `audit_events`.
-- `AuditEventRepository` exposes only `append` and chronological `findTrail`
-  operations—no general save, update, or delete surface. Detection, agent
-  results, state changes, proposals, every policy rule, decisions, actions, and
-  human decisions are represented as immutable events.
-- Human decisions require a non-blank persisted actor and reason through:
-  `POST /api/v1/revenue/actions/{actionId}/approve` and
-  `POST /api/v1/revenue/actions/{actionId}/reject`.
-- `GET /api/v1/revenue/incidents/{id}/audit-trail` returns the decision history
-  as a chronological human-readable story, including the complete policy trace.
-
-Policy settings are externalized under `sentinel.policy`:
+**Policy settings** — externalized under `sentinel.policy`:
 
 | Property | Default | Meaning |
 | --- | ---: | --- |
@@ -446,69 +372,40 @@ Policy settings are externalized under `sentinel.policy`:
 | `allowed-strategies` | Four bounded strategies | Strategies eligible to proceed |
 | `paid-or-refunded-statuses` | `CAPTURED`, `AUTHORIZED`, `PAID`, `REFUNDED` | Payment states that cannot be recovered again |
 
----
+</details>
 
-## Phase 6 — Razorpay Test Mode execution
+<details>
+<summary><strong>Phase 6 — Razorpay Test Mode execution</strong></summary>
 
 **Goal:** Execute one complete real recovery strategy safely through Razorpay Test Mode.
 
-### Work
+**Work**
+- Narrow `RazorpayClient` for payment lookup, Payment Link creation/fetch/cancellation, and supported notifications.
+- `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` via environment variables.
+- **Alternative Payment Link** as the first fully functional strategy; the plan avoids a degraded payment method where supported.
+- Execution is idempotent; verifies the original payment hasn't already succeeded.
+- Bounded retries, timeout handling, circuit breaker. Failed calls move to `RETRY_PENDING`; never hammer the provider.
+- All execution stays in Test Mode — no real-money automation.
 
-- Implement a narrow `RazorpayClient` for payment lookup, Payment Link creation/fetch/cancellation, and supported notifications.
-- Configure `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET` through environment variables.
-- Validate planned API requests and webhook details against current official Razorpay documentation during implementation.
-- Implement **Alternative Payment Link** as the first fully functional strategy.
-- Allow the plan to avoid a degraded payment method when supported by the integration.
-- Persist the mapping between recovery actions, affected payments, and external Test Mode resources.
-- Make execution idempotent and verify that the original payment has not already succeeded.
-- Add bounded retries, timeout handling, and a circuit breaker.
-- Move failed external calls to a controlled state such as `RETRY_PENDING`; never hammer the provider.
-- Keep all execution in Test Mode—no real-money automation.
+**Deliverable:** An approved low-risk action creates a real Razorpay Test Mode Payment Link exactly once.
 
-### Deliverable
-
-An approved low-risk action creates a real Razorpay Test Mode Payment Link exactly once.
-
-### Exit criteria
-
+**Exit criteria**
 - Credentials never enter source control, logs, prompts, or API responses.
 - Autonomous execution occurs only after a persisted `AUTO` policy decision.
 - Human-gated actions execute only after recorded approval.
-- Razorpay timeouts and errors leave the action in a safe recoverable state.
+- Razorpay timeouts/errors leave the action in a safe recoverable state.
 - Repeated execution requests do not create duplicate links.
 
-### Phase 6 implementation notes
+**Implementation notes**
+- `POST /api/v1/revenue/incidents/{incidentId}/execute` executes only an `ALTERNATIVE_PAYMENT_LINK` action with persisted `AUTO_APPROVED` permission, or a HUMAN action reaching `APPROVED` with `approvedAt` recorded.
+- One action targets one deterministic failed payment, one masked customer, one currency, that payment's exact minor-unit amount.
+- Deterministic provider reference: `sntl_` + action UUID without hyphens (37 characters). A PostgreSQL row lock serializes execution; repeated requests return the stored resource.
+- IDs beginning with `pay_` are fetched from Razorpay before link creation; authorized/captured/paid/refunded payments are stopped to avoid duplicate-charge risk.
+- Every create is preceded by a reference lookup. A timeout or ambiguous 5xx is **never** blindly retried — Sentinel looks up the same reference and either recovers the link or records `EXECUTION_UNCERTAIN`/`RETRY_PENDING`.
+- Payment Links use `accept_partial=false`, bounded expiry, masked notes, notifications off by default, UPI disabled while cards/netbanking remain enabled (avoids repeating the same failure mode in the recovery path).
+- Every execution stage — claimed, verification, provider request, reconciliation, success, uncertainty/retry, failure, cancellation — is an append-only audit event.
 
-- `POST /api/v1/revenue/incidents/{incidentId}/execute` executes only an
-  `ALTERNATIVE_PAYMENT_LINK` action with persisted `AUTO_APPROVED` permission
-  or a HUMAN action that has reached `APPROVED` with `approvedAt` recorded.
-- One action targets one deterministic failed payment, one masked customer,
-  one currency, and that payment's exact minor-unit amount. Other incident
-  payments are recorded as outside the Phase 6 action scope.
-- The deterministic provider reference is `sntl_` plus the action UUID without
-  hyphens (37 characters). A PostgreSQL row lock serializes execution requests,
-  the reference is unique, and repeated requests return the stored resource.
-- Sentinel checks local payment state first. IDs beginning with `pay_` are also
-  fetched from Razorpay before link creation; authorized, captured, paid, or
-  refunded payments are stopped to avoid duplicate-charge risk.
-- Every create is preceded by a reference lookup. A timeout or ambiguous 5xx is
-  never blindly retried: Sentinel looks up the same reference and either
-  recovers the link or records `EXECUTION_UNCERTAIN`/`RETRY_PENDING`.
-- Safe reads retry bounded 429/temporary failures with exponential backoff and
-  jitter. Ordinary 4xx failures are non-retryable, response bodies are not
-  persisted, and the circuit breaker produces a sanitized retry-pending result.
-- Payment Links use `accept_partial=false`, bounded expiry, masked notes,
-  notifications off by default, and checkout options with UPI disabled while
-  cards and netbanking remain enabled for the UPI-outage recovery path.
-- Cancellation and notification adapter operations are available at
-  `POST /api/v1/revenue/actions/{actionId}/cancel` and
-  `POST /api/v1/revenue/actions/{actionId}/notify/{sms|email}`. Notifications
-  remain disabled unless explicitly enabled.
-- Execution claimed, payment verification, provider request, reconciliation,
-  success, uncertainty/retry, failure, and cancellation are append-only audit
-  events and appear in the existing incident audit-trail endpoint.
-
-Razorpay execution is disabled by default and rejects any `rzp_live_` key:
+Execution is disabled by default and **rejects any `rzp_live_` key**:
 
 | Environment variable | Default | Meaning |
 | --- | --- | --- |
@@ -517,181 +414,87 @@ Razorpay execution is disabled by default and rejects any `rzp_live_` key:
 | `RAZORPAY_KEY_SECRET` | empty | Read only by the provider adapter |
 | `RAZORPAY_BASE_URL` | `https://api.razorpay.com` | Override only for isolated tests |
 
-The remaining timeouts, expiry, retry, notification, and circuit-breaker
-settings are under `sentinel.razorpay.*` in `application.yml`. Razorpay Test
-Mode currently limits an account to 30 Payment Links, so cancel old demo links
-or use a fresh Test Mode account when the provider reports that limit.
+Full 60–90 second Test Mode PowerShell demo script: **[SETUP.md](SETUP.md)**.
 
-#### 60–90 second Test Mode demo
+</details>
 
-```powershell
-$env:RAZORPAY_ENABLED="true"
-$env:RAZORPAY_KEY_ID="rzp_test_your_key"
-$env:RAZORPAY_KEY_SECRET="your_test_secret"
-mvn spring-boot:run
-
-$demo = Invoke-RestMethod -Method Post http://localhost:8080/api/v1/demo/inject/upi-outage
-$id = $demo.incidents[0].incidentId
-Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/revenue/incidents/$id/investigate"
-$plan = Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/revenue/incidents/$id/plan"
-if ($plan.policyDecision -eq "HUMAN") {
-  Invoke-RestMethod -Method Post -ContentType application/json -Body '{"actor":"demo-reviewer","reason":"Verified Test Mode demo"}' "http://localhost:8080/api/v1/revenue/actions/$($plan.actionId)/approve"
-}
-$first = Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/revenue/incidents/$id/execute"
-$second = Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/revenue/incidents/$id/execute"
-$first; $second; Invoke-RestMethod "http://localhost:8080/api/v1/revenue/incidents/$id/audit-trail"
-```
-
-Both execution responses must show the same provider ID/reference/short URL,
-and `mode` must be `TEST`. The second response reports `existing=true`.
-
-The optional live Test Mode smoke test is skipped by default. It creates one
-₹1.00 link only when explicitly enabled:
-
-```powershell
-$env:RAZORPAY_SMOKE="true"
-$env:RAZORPAY_KEY_ID="rzp_test_your_key"
-$env:RAZORPAY_KEY_SECRET="your_test_secret"
-mvn -Dtest=RazorpayTestModeSmokeTest test
-```
-
-The Phase 6 implementation stopped at execution; Phase 7 subsequently added
-webhook verification and revenue measurement without changing execution authority.
-
----
-
-## Phase 7 — Outcome loop and revenue measurement
+<details>
+<summary><strong>Phase 7 — Outcome loop and revenue measurement</strong></summary>
 
 **Goal:** Observe recovery outcomes, close incidents, and measure results honestly.
 
-### Work
+**Work**
+- `POST /api/v1/webhooks/razorpay` retains the raw request body; validates signatures via the configured secret and required HMAC procedure.
+- Persists external event IDs before processing so duplicate webhooks are safely acknowledged and ignored.
+- Supports Payment Link paid, partially paid, and cancelled outcomes.
+- Updates action, incident, and outcome state transactionally.
+- Computes revenue at risk, attempted recovery, recovered revenue, recovery rate, and strategy performance — always labelled **Recovered Revenue — Test Mode / Synthetic Evaluation**.
 
-- Add `POST /api/v1/webhooks/razorpay` while retaining the raw request body.
-- Validate webhook signatures using the configured secret and the required HMAC procedure.
-- Persist external event IDs before processing so duplicate webhooks are safely acknowledged and ignored.
-- Support Payment Link paid, partially paid, and cancelled lifecycle outcomes required by the demo.
-- Update action, incident, and outcome state transactionally.
-- Cancel recovery when the original payment succeeds elsewhere.
-- Compute revenue at risk, attempted recovery, recovered revenue, recovery rate, and strategy performance.
-- Label all financial results as **Recovered Revenue — Test Mode / Synthetic Evaluation**.
-- Feed completed incident outcomes into historical memory for later strategy analysis.
+**Deliverable:** A completed Test Mode payment updates the action, closes/advances the incident, increases recovered revenue, and records every step.
 
-### Deliverable
-
-A completed Test Mode payment updates the action, closes or advances the incident, increases recovered revenue, and records every step.
-
-### Exit criteria
-
+**Exit criteria**
 - A valid webhook changes state and revenue exactly once.
 - Invalid signatures are rejected and audited.
 - Duplicate events return safely without duplicate financial updates.
 - Recovered-revenue totals reconcile with individual outcomes.
-- The closed loop works: detect → diagnose → plan → guard → act → observe → measure.
+- The closed loop works end to end: detect → diagnose → plan → guard → act → observe → measure.
 
-### Phase 7 implementation notes
+**Implementation notes**
+- Verifies `X-Razorpay-Signature` with HMAC-SHA256 and **constant-time comparison** before parsing JSON. `X-Razorpay-Event-Id` is mandatory after signature validation.
+- Subscribed events: `payment_link.paid`, `payment_link.partially_paid`, `payment_link.cancelled`. `RAZORPAY_WEBHOOK_SECRET` is never returned, logged, audited, persisted, or passed to an LLM.
+- Delivery is treated as at-least-once and potentially out of order. Event-ID constraint + locked action row make duplicate/concurrent delivery idempotent. **Paid is terminal**, cumulative partial amounts only increase, cancellation cannot reverse paid, and a later verified paid event can supersede an earlier cancellation.
+- Events match only `RecoveryAction.externalResourceId` — customer details, descriptions, phones, emails never used as identity.
+- Invalid signatures are recorded in a separate append-only security table using only the request digest, timestamp, header presence, and safe reason.
 
-- `POST /api/v1/webhooks/razorpay` receives the exact request bytes. Sentinel
-  verifies `X-Razorpay-Signature` with HMAC-SHA256 and constant-time comparison
-  before parsing JSON. `X-Razorpay-Event-Id` is mandatory after signature
-  validation.
-- Subscribe the Test Mode webhook to `payment_link.paid`,
-  `payment_link.partially_paid`, and `payment_link.cancelled` only. Configure
-  the endpoint secret as `RAZORPAY_WEBHOOK_SECRET`; it is never returned,
-  logged, audited, persisted, or passed to an LLM.
-- Razorpay delivery is treated as at-least-once and potentially out of order.
-  The event-ID database constraint and locked action row make duplicate and
-  concurrent delivery idempotent. Paid is terminal, cumulative partial amounts
-  only increase, cancellation cannot reverse paid, and a later verified paid
-  event can supersede an earlier cancellation.
-- Events match only `RecoveryAction.externalResourceId` (the Razorpay Payment
-  Link ID). Customer details, descriptions, phones, emails, and reference text
-  are never used as identity.
-- Sentinel stores the event ID/type, link ID, SHA-256 payload digest, timestamps,
-  disposition, and a minimized non-customer payload projection. Invalid
-  signatures are represented in a separate append-only security table using
-  only the request digest, timestamp, header presence, and safe reason.
-- The normal webhook path never fetches Razorpay. It updates the current outcome
-  projection transactionally and responds immediately; provider reconciliation
-  remains an explicit Phase 6 operation.
-
-`GET /api/v1/revenue/metrics` returns:
+`GET /api/v1/revenue/metrics`:
 
 | Metric | Definition |
 | --- | --- |
 | Revenue at risk | Sum of persisted incident `amountAtRiskMinor` |
 | Attempted recovery | Exact action amount after a Payment Link was created |
 | Recovered revenue | Latest verified cumulative `amount_paid` per outcome |
-| Recovery rate | Recovered revenue divided by attempted recovery, zero-safe |
-| Strategy performance | Attempted and recovered amounts grouped by the persisted plan strategy |
+| Recovery rate | Recovered revenue ÷ attempted recovery, zero-safe |
+| Strategy performance | Attempted/recovered amounts grouped by plan strategy |
 
-Every response is labelled **Recovered Revenue — Test Mode / Synthetic
-Evaluation** and carries `mode: TEST`. Metrics read current outcome projections,
-not webhook-event rows, so partial and duplicate events cannot inflate totals.
+Manual signed-fixture test script and real Test Mode webhook setup (including the `zrok` tunnel recommendation): **[SETUP.md](SETUP.md)**.
 
-#### Manual signed-fixture test
+**Known limitations:** handles the three Payment Link lifecycle events needed for the buildathon; stores no full customer payload; does not implement generic payment/order webhook families.
 
-```powershell
-$secret = $env:RAZORPAY_WEBHOOK_SECRET
-$body = '{"event":"payment_link.paid","payload":{"payment_link":{"entity":{"id":"plink_REPLACE","amount":12345,"amount_paid":12345,"currency":"INR","status":"paid"}}}}'
-$hmac = [System.Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($secret))
-$signature = [Convert]::ToHexString($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($body))).ToLowerInvariant()
-Invoke-RestMethod -Method Post -ContentType application/json -Body $body `
-  -Headers @{'X-Razorpay-Signature'=$signature;'X-Razorpay-Event-Id'='manual_event_001'} `
-  http://localhost:8080/api/v1/webhooks/razorpay
-Invoke-RestMethod http://localhost:8080/api/v1/revenue/metrics
-```
+</details>
 
-Replace the link ID and exact amount with the resource returned by Phase 6.
-Sending the same event ID again returns `DUPLICATE` with no metric change.
-
-For a real Test Mode flow, expose only the webhook endpoint over HTTPS, register
-that URL in the Razorpay Test Mode dashboard, and use the same dashboard secret
-as `RAZORPAY_WEBHOOK_SECRET`. Razorpay recommends a zrok tunnel for local demos
-when common tunnel services are unavailable. Never expose a local development
-database or management port through the tunnel.
-
-Known limitations: the outcome loop handles the three Payment Link lifecycle
-events needed for the buildathon, stores no full customer payload, does not push
-browser updates, and does not implement generic payment/order webhook families.
-
----
-
-## Phase 8 — Operational dashboard
+<details>
+<summary><strong>Phase 8 — Operational dashboard</strong></summary>
 
 **Goal:** Make the complete operational story understandable and controllable from one interface.
 
-### Work
+**Work:** Next.js + TypeScript dashboard — overview cards, recovery trends, failure distribution, incident feed, strategy performance, agent status, incident detail with pipeline progress, agent findings with evidence (not hidden chain-of-thought), approval queue, action results, webhook outcomes, immutable audit timeline, demo reset/injection controls.
 
-- Build a Next.js and TypeScript dashboard.
-- Add overview cards for revenue at risk, recovered revenue, recovery rate, and active incidents.
-- Add recovery trends, failure distribution, incident feed, strategy performance, and agent status.
-- Build an incident detail page with amounts, affected transactions/customers, state, and pipeline progress.
-- Display agent findings, confidence, and supporting evidence—not hidden chain-of-thought.
-- Display the proposed strategy, recoverable amount, predicted outcome, and policy rules.
-- Add an approval queue with approve/reject controls and the reason human review is required.
-- Add action results, webhook outcomes, and the immutable audit timeline.
-- Support the demo reset and UPI-outage injection flow from the UI.
+**Deliverable:** The primary five-minute story can be demonstrated from the dashboard without Postman.
 
-### Deliverable
-
-The primary five-minute story can be demonstrated from the dashboard without Postman.
-
-### Exit criteria
-
+**Exit criteria**
 - A user can inject a scenario, inspect the incident, approve a gated action, and see the outcome.
 - Every important decision is visible with evidence and status.
 - Financial metrics clearly state Test Mode/synthetic scope.
 - Loading, empty, failure, and partial-result states are usable.
 
----
+The dashboard never receives Razorpay credentials, webhook bodies, customer identifiers, or raw payment data — the Spring Boot backend remains the sole source of truth. Only `NEXT_PUBLIC_SENTINEL_API_URL` belongs in browser configuration.
 
-## Phase 9 — Evaluation, testing, and resilience
+**Dashboard verification:**
+```bash
+cd dashboard && npm run verify
+```
+Runs linting, strict TypeScript checking, focused workflow tests, and the production build. `Cmd/Ctrl+K` opens navigation, `Escape` closes dialogs, focus states are visible, reduced-motion preferences are honored globally.
+
+**References:** [Next.js](https://nextjs.org/docs) · [shadcn/ui Sidebar](https://ui.shadcn.com/docs/components/base/sidebar)/[Chart](https://ui.shadcn.com/docs/components/base/chart) · [TanStack Query](https://tanstack.com/query/latest/docs/framework/react/overview) · [Motion for React](https://motion.dev/docs/react) · [Lucide React](https://lucide.dev/guide/react) · [Radix accessibility](https://www.radix-ui.com/primitives/docs/overview/accessibility)
+
+</details>
+
+<details>
+<summary><strong>Phase 9 — Evaluation, testing, and resilience</strong></summary>
 
 **Goal:** Prove that Sentinel is effective, policy-compliant, and safe under failure.
 
-Phase 9 is implemented as a deterministic proof harness rather than another product feature. It generates 464 balanced, labelled cases from 29 categories using seed `20260901`, runs them through the real deterministic detection, policy, signature-verification and safety boundaries, and compares the actual decision with an independent expected oracle. No live LLM or Razorpay credential is needed.
-
-### Evaluation architecture
+Implemented as a **deterministic proof harness**, not another product feature — 464 balanced, labelled cases from 29 categories, seed `20260901`, run through the real deterministic detection, policy, signature-verification, and safety boundaries, compared against an independent expected oracle. No live LLM or Razorpay credential needed.
 
 ```text
 fixed seed + committed schema
@@ -705,18 +508,15 @@ fixed seed + committed schema
           └── deterministic LLM/provider failure fixtures
           │
           ▼
- expected vs actual evidence ──► hard safety gates
-          │                         (any failure fails CI)
+ expected vs actual evidence ──► hard safety gates (any failure fails CI)
+          │
           ▼
  canonical JSON + Markdown + SHA-256 + persisted evaluation_runs row
-          │
-          ├── GET/POST /api/v1/evaluation/*
-          └── dashboard /evaluation
 ```
 
-The dataset covers normal/noisy controls, anomaly families, all policy verdicts and mandatory stop reasons, approval flow, duplicate action attempts, duplicate/out-of-order/partial/cancelled webhooks, signature and reconciliation mismatches, LLM timeout/outage/invalid JSON/schema failures, Razorpay 400/401/429/timeout/5xx and ambiguous create, plus prompt-injection and PII boundaries. The committed contract is documented in [`evaluation/README.md`](evaluation/README.md) and [`evaluation/schema/sentinel-evaluation-scenario.schema.json`](evaluation/schema/sentinel-evaluation-scenario.schema.json).
+Covers normal/noisy controls, anomaly families, all policy verdicts and mandatory stop reasons, approval flow, duplicate action attempts, duplicate/out-of-order/partial/cancelled webhooks, signature and reconciliation mismatches, LLM timeout/outage/invalid JSON/schema failures, Razorpay 400/401/429/timeout/5xx and ambiguous create, plus prompt-injection and PII boundaries. Committed contract: [`evaluation/README.md`](evaluation/README.md) and [`evaluation/schema/sentinel-evaluation-scenario.schema.json`](evaluation/schema/sentinel-evaluation-scenario.schema.json).
 
-### Authoritative metrics
+**Authoritative metrics:**
 
 | Metric | Definition | Evidence population |
 |---|---|---|
@@ -728,99 +528,42 @@ The dataset covers normal/noisy controls, anomaly families, all policy verdicts 
 | Escalation rate | HUMAN decisions / labelled incidents | policy results |
 | Verified recovery rate | signed verified paid outcomes / attempts | reconciled webhook outcomes |
 
-The report always includes raw numerator and denominator. Confusion-matrix cells, funnel stages, per-strategy sample sizes, p50/p95 logical stage latency and failure evidence are inspectable. Logical latency is deterministic regression evidence—not a production benchmark. Every money figure is labelled **Razorpay Test Mode / Synthetic Evaluation** and does not claim production uplift.
-
-Hard zero-tolerance gates cover unsafe autonomous execution, duplicate financial effects, accepted invalid signatures, reversed paid outcomes, policy disagreement, approval bypass, sensitive-data leakage and same-seed result drift. A single non-zero counter fails the integration test and CI.
-
-### Generate the proof report
-
-Docker must be running because PostgreSQL integration tests never substitute H2:
-
-```powershell
-mvn clean verify
+Generate the proof report:
+```bash
+mvn clean verify   # requires Docker — Postgres integration tests never substitute H2
+mvn -Dtest=EvaluationHarnessIntegrationTest test   # focused report command
 ```
+Writes `target/evaluation-reports/sentinel-evaluation-report.{json,md}`, migrates an empty real PostgreSQL database through Flyway V7, persists the canonical report + SHA-256, and proves a repeat run is identical.
 
-The focused report command is:
+Runtime proof endpoints: `GET /api/v1/evaluation/report` · `POST /api/v1/evaluation/run` · `GET /api/v1/evaluation/report.{json|md}` · `GET /actuator/health` · `GET /actuator/metrics`.
 
-```powershell
-mvn -Dtest=EvaluationHarnessIntegrationTest test
-```
+Dashboard proof surface: `http://localhost:3000/evaluation` — executive scorecard, hard gates, confusion matrix, recovery funnel, scenario-level expected/actual evidence, failure-injection laboratory, metric definitions, honest limitations.
 
-It writes `target/evaluation-reports/sentinel-evaluation-report.json` and `.md`, migrates an empty real PostgreSQL database through Flyway V7, persists the canonical report and SHA-256, and proves a repeat run is identical. The optional live Razorpay Test Mode path remains credential-gated; the default suite is fully offline and deterministic.
+**What this proves:** the checked-in decision code matches an independent labelled oracle for the committed scenario matrix; mandatory stop and approval gates cannot be bypassed by evaluated paths; duplicate/invalid/out-of-order inputs do not double count financial outcomes; provider/model failures are bounded; the full proof is reproducible without credentials on real PostgreSQL.
 
-Runtime proof endpoints:
+**What this does not prove:** production payment-success uplift, real merchant recovery rate, causal impact, workload capacity, or scenario prevalence. Logical p50/p95 latency detects regression in the fixture cost model — it is not a production benchmark. Razorpay neither endorses these results nor is represented by the synthetic provider fixtures.
 
-```text
-GET  /api/v1/evaluation/report       current structured report
-POST /api/v1/evaluation/run          regenerate and persist from the fixed seed
-GET  /api/v1/evaluation/report.json  canonical JSON download
-GET  /api/v1/evaluation/report.md    human-readable Markdown download
-GET  /actuator/health                application and evaluation readiness
-GET  /actuator/metrics               bounded stage/outcome observations
-```
+CI (`.github/workflows/phase9-proof.yml`) runs credential-pattern/generated-file scanning, Java 17 `mvn clean verify` with Docker-backed PostgreSQL, dashboard lint/type/unit/build checks, and desktop/mobile Playwright + axe accessibility journeys — uploading Surefire, JaCoCo, canonical evaluation reports, and browser evidence on every run.
 
-`X-Correlation-Id` is accepted or safely generated and returned on every response. Observability tags are bounded to route stage and outcome; request bodies, customer identifiers, provider payloads and secrets are never logged or tagged.
+</details>
 
-### Dashboard proof surface
-
-Open [http://localhost:3000/evaluation](http://localhost:3000/evaluation). The Evaluation Lab shows the executive scorecard, hard gates, accessible confusion matrix, recovery funnel, strategy sample counts, scenario-level expected/actual evidence, failure-injection laboratory, metric definitions and honest limitations. It supports JSON/Markdown download and regeneration through the same backend report.
-
-### Five-minute evaluation demo
-
-1. Start Docker/PostgreSQL, the Spring Boot backend, and the dashboard using the setup commands above.
-2. Open `/evaluation` and call out the permanent **Razorpay Test Mode / Synthetic Evaluation** scope label.
-3. Select **Run evaluation**; the backend regenerates all 464 cases from seed `20260901`, validates every hard gate, and persists the version/hash once.
-4. Walk the confusion matrix and recovery funnel, then open **Definitions** to show the authoritative numerator, denominator and evidence source.
-5. Filter the Scenario Explorer for `already paid` to demonstrate a deterministic DENY, then `invalid signature` to show zero financial mutation.
-6. Open **Failure laboratory** to show bounded LLM, provider, concurrency, circuit, webhook-ordering and prompt-injection behavior.
-7. Download JSON or Markdown and finish with the limitations: these results prove deterministic behavior against this committed oracle, not production prevalence or merchant revenue uplift.
-
-### What this proves / what it does not prove
-
-This proves that the checked-in decision code matches an independent labelled oracle for the committed scenario matrix; mandatory stop and approval gates cannot be bypassed by the evaluated paths; duplicate/invalid/out-of-order inputs do not double count financial outcomes; provider and model failures are bounded; and the full proof is reproducible without credentials on real PostgreSQL.
-
-It does not prove production payment-success uplift, real merchant recovery rate, causal impact, workload capacity, or the prevalence of any scenario. The logical p50/p95 values detect regression in the fixture cost model and must not be presented as production latency. Razorpay is neither endorsing these results nor represented by the synthetic provider fixtures.
-
-### CI and acceptance evidence
-
-`.github/workflows/phase9-proof.yml` runs the credential-pattern/generated-file scan, Java 17 `mvn clean verify` with Docker-backed PostgreSQL, dashboard lint/type/unit/build checks, and desktop/mobile Playwright plus axe accessibility journeys. It uploads Surefire, JaCoCo, canonical evaluation reports and browser evidence on every run.
-
-Phase 9 is complete when all zero-tolerance gates pass, policy compliance is 100%, duplicate recovery actions and financial effects remain zero, LLM/provider failures are bounded, the same seed produces identical output, and both backend and dashboard verification commands pass from a clean checkout.
-
----
-
-## Phase 10 — Integration, release, and submission
+<details>
+<summary><strong>Phase 10 — Integration, release, and submission</strong></summary>
 
 **Goal:** Freeze features and deliver a reproducible, polished Buildathon release.
 
-### Release result
-
+**Release result**
 - `docker compose up --build` starts PostgreSQL, runs Flyway V1–V7, waits for the backend health check, and serves the dashboard.
-- [`.env.example`](.env.example) documents the Gemini, Razorpay Test Mode, and database configuration without real credentials.
+- [`.env.example`](.env.example) documents Gemini, Razorpay Test Mode, and database configuration without real credentials.
 - [SETUP.md](SETUP.md) is the nine-step setup/demo card; [ARCHITECTURE.md](ARCHITECTURE.md) is the reviewer-first Mermaid system map.
-- [CONTRIBUTING.md](CONTRIBUTING.md), [LICENSE](LICENSE), Docker build contexts, non-root runtime images, health checks, and credential scans form the release boundary.
-- Phase 10 changes packaging and documentation only; the Phase 9 oracle and all business behavior remain unchanged.
+- [CONTRIBUTING.md](CONTRIBUTING.md), Docker build contexts, non-root runtime images, health checks, and credential scans form the release boundary.
+- Packaging and documentation only — the Phase 9 oracle and all business behavior remain unchanged.
 
-### Deliverable
+**Exit criteria** — from a clean environment: start Postgres/backend/dashboard → load the labelled dataset → detect an anomaly → cluster an incident → investigate to an evidence-backed root cause → propose a plan → get a deterministic policy result → auto-execute or get human approval → create the Razorpay Test Mode resource → receive and validate the outcome webhook → update recovered revenue exactly once → display evaluation metrics and the full audit trail.
 
-A versioned, documented Sentinel Revenue Intelligence release that can be set up and demonstrated reliably.
+</details>
 
-### Exit criteria
-
-From a clean environment, the team can:
-
-1. Start PostgreSQL, the Sentinel backend, and the dashboard.
-2. Load the labelled payment dataset.
-3. Detect a revenue anomaly and create a clustered incident.
-4. Run agentic investigation and produce an evidence-backed root cause.
-5. Generate a recovery proposal and deterministic policy result.
-6. Auto-execute a safe action or request human approval.
-7. Create the Razorpay Test Mode recovery resource.
-8. Receive and validate the outcome webhook.
-9. Update recovered revenue exactly once.
-10. Display evaluation metrics and the complete audit trail.
-
-## Implemented API surface
+### Implemented API surface
 
 ```text
 POST /investigate                                  # existing engineering flow
@@ -848,93 +591,15 @@ POST /api/v1/evaluation/run                       # regenerate deterministic pro
 GET  /api/v1/evaluation/report.{json|md}          # downloadable proof artifacts
 ```
 
-## Priority rules
+### Priority rules
 
-### P0 — Required for submission
+**P0 — Required for submission:** payment-event batch · deterministic revenue detection · agentic investigation with evidence-backed root cause · recovery planning · deterministic Policy Engine · Razorpay Test Mode action · webhook-driven outcome · immutable audit trail · recovered-revenue metric · usable dashboard.
 
-- Payment-event batch
-- Deterministic revenue detection
-- Agentic investigation and evidence-backed root cause
-- Recovery planning
-- Deterministic Policy Engine
-- Razorpay Test Mode action
-- Webhook-driven outcome
-- Immutable audit trail
-- Recovered-revenue metric
-- Usable dashboard
+**P1 — Strong differentiators:** historical incident memory · strategy success statistics · human approval queue · incident clustering · graceful API fallback · evaluation harness · live agent/evidence timeline.
 
-### P1 — Strong differentiators
+**P2 — Stretch only after P0 is stable:** pgvector · SSE streaming · subscription recovery · automatic retry scheduling · multiple merchants · advanced anomaly models · model routing · MCP integration · voice recovery. *P2 work must never endanger the complete P0 recovery loop.*
 
-- Historical incident memory
-- Strategy success statistics
-- Human approval queue
-- Incident clustering
-- Graceful API fallback
-- Evaluation harness
-- Live agent/evidence timeline
-
-### P2 — Stretch only after P0 is stable
-
-- pgvector
-- Server-sent event streaming
-- Subscription recovery
-- Automatic retry scheduling
-- Multiple merchants
-- Advanced anomaly models
-- Model routing
-- MCP integration
-- Voice recovery
-
-P2 work must never endanger the complete P0 recovery loop.
-
-## Deliberate non-goals
-
-For the Buildathon release, do not add:
-
-- A large collection of superficial agents
-- Kubernetes or unnecessary microservices
-- Kafka without a demonstrated need
-- A custom ML anomaly model before deterministic rules work
-- Multiple LLM providers
-- A mobile application
-- A full authentication platform, CRM, or billing system
-- Real-money automation
-- A giant RAG corpus
-- Fake autonomous behaviour
-
-The system should be deep, bounded, explainable, and demonstrably useful.
-
-## Core success metrics
-
-- Total transactions and value evaluated
-- Revenue at risk
-- Recovery attempted
-- **Recovered Revenue — Test Mode / Synthetic Evaluation**
-- Recovery rate overall and by strategy
-- Detection precision and recall
-- Root-cause accuracy
-- Policy compliance and human-escalation rates
-- False-intervention rate
-- Duplicate recovery actions
-- Duplicate webhooks safely ignored
-- Mean decision and recovery latency
-
-## Suggested eight-day mapping
-
-| Buildathon day | Phases | Demonstrable result |
-|---|---|---|
-| Day 1 | Phase 1 | Extensible Sentinel Core; existing investigation still works |
-| Day 2 | Phases 2–3 | Batch upload creates a quantified revenue incident |
-| Day 3 | Phase 4 | Agents produce root cause, evidence, and confidence |
-| Day 4 | Phase 5 | Recovery proposal receives AUTO/HUMAN/DENY decision |
-| Day 5 | Phases 6–7 | Test Mode link → payment → webhook → recovered revenue |
-| Day 6 | Phase 8 | Complete operational flow visible in the dashboard |
-| Day 7 | Phase 9 | Evaluation results, automated tests, and failure demos |
-| Day 8 | Phase 10 | Feature freeze, clean setup, documentation, and pitch |
-
-## Post-Buildathon direction
-
-Once Revenue Recovery is stable, Sentinel Core can support additional domain packs:
+### Post-Buildathon direction
 
 ```text
 Sentinel Core
@@ -949,74 +614,17 @@ Sentinel Core
 └── Custom Domain SDK
 ```
 
-## Phase 8 dashboard
+<details>
+<summary><strong>Full engineering reference list</strong></summary>
 
-The operational dashboard lives in `dashboard/` as a separate Next.js and TypeScript application. It never receives Razorpay credentials, webhook bodies, customer identifiers, or raw payment data. The Spring Boot backend remains the source of truth for incident state, policy decisions, execution, idempotency, and recovered-revenue measurement.
+[Docker Compose](https://docs.docker.com/compose/) · [Mermaid](https://mermaid.js.org/) · [Gitleaks](https://github.com/gitleaks/gitleaks) · [Spring Boot external configuration](https://docs.spring.io/spring-boot/reference/features/external-config.html) · [Spring REST error handling](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-ann-rest-exceptions.html) · [Gemini structured output](https://ai.google.dev/gemini-api/docs/structured-output) · [Java 17 HTTP client timeouts](https://docs.oracle.com/en/java/javase/17/docs/api/java.net.http/java/net/http/HttpClient.Builder.html) · [Google Gen AI Java SDK](https://github.com/googleapis/java-genai) · [Spring PetClinic](https://github.com/spring-projects/spring-petclinic) · [Razorpay Payment Links API](https://razorpay.com/docs/api/payments/payment-links/) · [Create Standard Payment Link](https://razorpay.com/docs/api/payments/payment-links/create-standard/) · [Fetch by reference ID](https://razorpay.com/docs/api/payments/payment-links/fetch-all-standard/) · [Customise payment methods](https://razorpay.com/docs/api/payments/payment-links/customise-payment-methods/) · [Razorpay errors & rate limiting](https://razorpay.com/docs/api/understand/) · [Official Razorpay Java SDK](https://github.com/razorpay/razorpay-java) · [Resilience4j](https://github.com/resilience4j/resilience4j) · [WireMock](https://wiremock.org/docs/spring-boot/) · [Testcontainers PostgreSQL](https://java.testcontainers.org/modules/databases/postgres/) · [Razorpay Test webhook validation](https://razorpay.com/docs/webhooks/validate-test/) · [Webhook best practices](https://razorpay.com/docs/webhooks/best-practices/) · [Payment Link webhook payloads](https://razorpay.com/docs/webhooks/payment-links/) · [Payment Link states](https://razorpay.com/docs/payments/payment-links/states/) · [zrok local tunnel](https://zrok.io/)
 
-### Run locally
+</details>
 
-Use the one-command release in [SETUP.md](SETUP.md). For dashboard-only development, start the backend, copy `dashboard/.env.example` to `dashboard/.env.local`, run `npm ci` and `npm run dev` from `dashboard/`, then open `http://localhost:3000`.
+</details>
 
-Only `NEXT_PUBLIC_SENTINEL_API_URL` belongs in the browser configuration. Razorpay keys and the webhook secret stay in backend environment variables.
-
-### Five-minute dashboard demo
-
-1. Open **Demo controls**, reset the synthetic state, and inject the UPI outage. The fixed labelled batch goes through real ingestion and rule-based detection.
-2. Open the created incident. Run **Investigation**, then inspect computed evidence and the root-cause confidence.
-3. Build the recovery plan. Read the individual mandatory-stop and allow-rule results in **Policy trace**.
-4. If the result is **HUMAN**, open **Approval queue**, provide an actor identity and reason, and approve or reject. For **AUTO**, continue directly.
-5. Execute the approved action once. Sentinel creates or safely recovers one Razorpay Test Mode Payment Link; replaying the request does not create another active action.
-6. Pay the Test Mode link. After Razorpay sends the signed webhook, use **Refresh**. While an incident is monitoring an outcome, the detail view polls modestly every eight seconds and labels that behavior explicitly.
-7. Open **Metrics & audit**. Confirm that recovered revenue advances exactly once and that detection, diagnosis, policy rule trace, approval, execution, webhook verification, and duplicate safety form one chronological story.
-
-Every financial surface is labelled **TEST MODE / SYNTHETIC EVALUATION**. The dashboard uses controlled refresh and narrow mutation invalidation; it does not claim to be a streaming interface.
-
-### Dashboard verification
-
-```bash
-cd dashboard
-npm run verify
-```
-
-This runs linting, strict TypeScript checking, focused workflow tests, and the production Next.js build. The primary desktop and narrow mobile layouts are designed for keyboard and touch use; `Cmd/Ctrl+K` opens navigation, `Escape` closes dialogs, focus states are visible, and reduced-motion preferences are honored globally.
-
-### Dashboard references
-
-- [Next.js documentation](https://nextjs.org/docs)
-- [shadcn/ui Sidebar](https://ui.shadcn.com/docs/components/base/sidebar) and [Chart](https://ui.shadcn.com/docs/components/base/chart)
-- [TanStack Query](https://tanstack.com/query/latest/docs/framework/react/overview)
-- [Motion for React](https://motion.dev/docs/react) and [reduced-motion accessibility](https://motion.dev/docs/react-accessibility)
-- [Lucide React](https://lucide.dev/guide/react)
-- [Radix accessibility guidance](https://www.radix-ui.com/primitives/docs/overview/accessibility)
-
-## Engineering references
-
-Phase 1 follows primary documentation and representative open-source implementations:
-
-- [Docker Compose](https://docs.docker.com/compose/)
-- [Mermaid](https://mermaid.js.org/)
-- [Gitleaks](https://github.com/gitleaks/gitleaks)
-- [Spring Boot type-safe external configuration and validation](https://docs.spring.io/spring-boot/reference/features/external-config.html)
-- [Spring Framework REST error handling](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-ann-rest-exceptions.html)
-- [Google Gemini structured output](https://ai.google.dev/gemini-api/docs/structured-output)
-- [Java 17 HTTP client timeouts](https://docs.oracle.com/en/java/javase/17/docs/api/java.net.http/java/net/http/HttpClient.Builder.html)
-- [Google Gen AI Java SDK examples](https://github.com/googleapis/java-genai)
-- [Spring PetClinic reference application](https://github.com/spring-projects/spring-petclinic)
-- [Razorpay Payment Links API](https://razorpay.com/docs/api/payments/payment-links/)
-- [Create Standard Payment Link](https://razorpay.com/docs/api/payments/payment-links/create-standard/)
-- [Fetch Payment Links by reference ID](https://razorpay.com/docs/api/payments/payment-links/fetch-all-standard/)
-- [Customise Payment Link payment methods](https://razorpay.com/docs/api/payments/payment-links/customise-payment-methods/)
-- [Razorpay API errors and rate limiting](https://razorpay.com/docs/api/understand/)
-- [Official Razorpay Java SDK reference](https://github.com/razorpay/razorpay-java)
-- [Resilience4j](https://github.com/resilience4j/resilience4j)
-- [WireMock](https://wiremock.org/docs/spring-boot/)
-- [Testcontainers PostgreSQL](https://java.testcontainers.org/modules/databases/postgres/)
-- [Razorpay Test webhook validation](https://razorpay.com/docs/webhooks/validate-test/)
-- [Razorpay webhook best practices](https://razorpay.com/docs/webhooks/best-practices/)
-- [Razorpay Payment Link webhook payloads](https://razorpay.com/docs/webhooks/payment-links/)
-- [Razorpay Payment Link states](https://razorpay.com/docs/payments/payment-links/states/)
-- [zrok local tunnel](https://zrok.io/)
+---
 
 ## License
 
-[MIT](LICENSE)
+**© 2026 Sufiyan Khan. All rights reserved.** This repository is shared publicly for review and evaluation purposes only (including Razorpay Buildathon judging). No reuse, redistribution, or derivative use is permitted without written permission. See [LICENSE](LICENSE) for the full notice.
