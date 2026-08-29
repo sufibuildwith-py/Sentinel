@@ -67,6 +67,7 @@ export default function EvaluationPage() {
   const report = evaluation.data;
   const strategy = report.strategyPerformance.map((item) => ({ ...item, name: item.strategy.replaceAll("_", " "), rate: +(item.recoveryRate * 100).toFixed(1) }));
   return <div><PageHeader eyebrow="Proof phase" title="Sentinel Evaluation Lab" description="Reproducible evidence that detection, policy, recovery and webhook safeguards behave as specified under deterministic failures." onRefresh={() => void evaluation.refetch()} refreshing={evaluation.isFetching || run.isPending} updated={evaluation.dataUpdatedAt ? new Date(evaluation.dataUpdatedAt) : undefined} />
+    <div className="mb-5 border-b border-white/[0.06] py-4 font-mono text-xs tracking-[0.15em] text-[#888888] uppercase">{report.datasetSize} scenarios · {report.policyCompliance.numerator}/{report.policyCompliance.denominator} policy compliance · {report.duplicateFinancialEffects} unsafe executions · {report.safetyGates.filter((gate) => gate.passed).length}/{report.safetyGates.length} gates</div>
     <div className="mb-5 flex flex-col justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[.055] p-4 sm:flex-row sm:items-center">
       <div>
         <p className="text-xs font-semibold text-primary">Sentinel Evaluation Lab — Razorpay Test Mode / Synthetic Evaluation</p>

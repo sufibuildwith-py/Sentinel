@@ -11,7 +11,7 @@ import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, C
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 const navigation = [
-  { href: "/", label: "Overview", icon: Gauge },
+  { href: "/console", label: "Overview", icon: Gauge },
   { href: "/incidents", label: "Incidents", icon: Activity },
   { href: "/approvals", label: "Approval queue", icon: ListChecks },
   { href: "/metrics", label: "Metrics & audit", icon: BarChart3 },
@@ -46,7 +46,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname();
   return <SidebarProvider><Sidebar collapsible="icon" variant="inset">
     <SidebarHeader className="p-3"><div className="flex h-11 items-center gap-3 rounded-xl px-2"><div className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-primary/30 bg-primary/10 text-primary"><ShieldCheck className="size-4" /></div><div className="overflow-hidden"><p className="truncate text-sm font-semibold tracking-tight">Sentinel</p><p className="truncate text-[10px] text-muted-foreground">Revenue intelligence</p></div></div></SidebarHeader>
-    <SidebarContent><SidebarGroup><SidebarGroupLabel>Command center</SidebarGroupLabel><SidebarGroupContent><SidebarMenu>{navigation.map((item) => { const active = item.href === "/" ? path === "/" : path.startsWith(item.href); return <SidebarMenuItem key={item.href}><SidebarMenuButton render={<Link href={item.href} />} isActive={active} tooltip={item.label}><item.icon /><span>{item.label}</span></SidebarMenuButton></SidebarMenuItem>; })}</SidebarMenu></SidebarGroupContent></SidebarGroup></SidebarContent>
+    <SidebarContent><SidebarGroup><SidebarGroupLabel>Command center</SidebarGroupLabel><SidebarGroupContent><SidebarMenu>{navigation.map((item) => { const active = item.href === "/console" ? path === "/console" : path.startsWith(item.href); return <SidebarMenuItem key={item.href}><SidebarMenuButton render={<Link href={item.href} />} isActive={active} tooltip={item.label}><item.icon /><span>{item.label}</span></SidebarMenuButton></SidebarMenuItem>; })}</SidebarMenu></SidebarGroupContent></SidebarGroup></SidebarContent>
     <SidebarFooter className="p-3"><div className="rounded-xl border border-primary/15 bg-primary/5 p-3 group-data-[collapsible=icon]:hidden"><p className="text-[10px] font-bold tracking-[.14em] text-primary">TEST MODE</p><p className="mt-1 text-[11px] leading-4 text-muted-foreground">Synthetic evaluation only. No production funds.</p></div></SidebarFooter>
   </Sidebar><SidebarInset className="min-w-0 overflow-hidden bg-[radial-gradient(circle_at_85%_-10%,#3182ff0d,transparent_30%)]">
     <header className="relative flex h-14 shrink-0 items-center justify-between border-b border-white/7 px-3 sm:px-5"><div className="flex items-center gap-2"><SidebarTrigger /><div className="hidden h-4 w-px bg-border sm:block" /><span className="hidden text-xs text-muted-foreground sm:block">Operations command center</span></div><StatusIsland /><div className="flex items-center gap-2"><CommandPalette /><div className="hidden xl:block"><span className="test-label">Test mode / Synthetic evaluation</span></div></div></header>

@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, ArrowRight, CircleDollarSign, RefreshCw, ShieldCheck, Target, TrendingUp, Users } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { api, money, shortId } from "@/lib/api";
+import { fixtureMode } from "@/lib/environment";
 import { ErrorState, LoadingGrid, MetricCard, PageHeader, SelectedGlow, StateBadge } from "@/components/dashboard-ui";
 import { Button } from "@/components/ui/button";
 
 export default function OverviewPage() {
+  const shouldReduceMotion = useReducedMotion();
   const metrics = useQuery({ queryKey: ["metrics"], queryFn: api.metrics });
   const incidents = useQuery({ queryKey: ["incidents"], queryFn: api.incidents });
   const refresh = () => { void metrics.refetch(); void incidents.refetch(); };
@@ -18,6 +20,12 @@ export default function OverviewPage() {
   const focus = incidents.data?.find((item) => !["RECOVERED", "STOPPED"].includes(item.status)) ?? incidents.data?.[0];
 
   return <div>
+    <div className="-mx-4 mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-white/[0.06] bg-[#080808] px-6 py-3 font-mono text-[10px] tracking-[0.2em] uppercase sm:-mx-6 lg:-mx-8">
+      <span className="flex items-center gap-2 text-green-500"><span className={`size-1.5 rounded-full bg-green-500 ${shouldReduceMotion ? "" : "animate-pulse"}`} />System Online</span>
+      <span className="text-[#444444]">Razorpay Test Mode</span>
+      <span className="text-[#444444]">Policy Engine Active</span>
+      <span className="text-[#444444]">Fixture Mode: {fixtureMode ? "ON" : "OFF"}</span>
+    </div>
     <PageHeader eyebrow="Overview" title="Revenue recovery, under control" description="One operational view from anomaly detection to verified payment outcome. Values below are Razorpay Test Mode synthetic evaluation data." onRefresh={refresh} refreshing={metrics.isFetching || incidents.isFetching} updated={metrics.dataUpdatedAt ? new Date(metrics.dataUpdatedAt) : undefined} />
     <div className="mb-4 flex items-center justify-between gap-3"><span className="test-label">Test mode / Synthetic evaluation</span><span className="text-right text-xs text-muted-foreground">Reconciled from persisted actions and outcomes</span></div>
     <section aria-label="Revenue metrics" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
