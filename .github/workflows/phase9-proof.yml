@@ -1,4 +1,4 @@
-name: Phase 9 proof
+name: Release proof
 
 on:
   push:
@@ -17,6 +17,11 @@ jobs:
 
       - name: Repository safety scan
         run: bash scripts/verify-no-secrets.sh
+
+      - name: Compose release configuration
+        env:
+          GEMINI_API_KEY: ci-placeholder-not-a-secret
+        run: docker compose config --quiet
 
       - uses: actions/setup-java@v4
         with:

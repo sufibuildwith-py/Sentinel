@@ -1,8 +1,16 @@
-© 2026 [Sufiyan Khan]. All rights reserved.
+Copyright © 2026 Sufiyan Khan. Released under the [MIT License](LICENSE).
 
 # Sentinel
 
-**A domain-extensible agentic incident-intelligence platform.**
+[![Release proof](https://github.com/sufibuildwith-py/Sentinel/actions/workflows/phase9-proof.yml/badge.svg)](https://github.com/sufibuildwith-py/Sentinel/actions/workflows/phase9-proof.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Java 17](https://img.shields.io/badge/Java-17-007396.svg)](https://adoptium.net/temurin/releases/?version=17)
+
+**A governed multi-agent revenue-recovery platform with deterministic financial guardrails.**
+
+The fixed-seed Phase 9 proof contains 464 labelled synthetic/Test Mode scenarios: policy compliance is **432/432**, execution eligibility is **464/464**, and unsafe autonomous executions, duplicate financial effects, invalid signatures accepted, approval bypasses, and report leaks are all **0**. An already-paid payment is denied by mandatory policy even when model confidence is high. These are deterministic evaluation results—not production revenue claims—and can be regenerated from the checked-in harness.
+
+Start with [SETUP.md](SETUP.md) for the under-ten-line Docker demo, [ARCHITECTURE.md](ARCHITECTURE.md) for the full pipeline, and [evaluation/README.md](evaluation/README.md) for metric definitions and limitations.
 
 Sentinel detects operational problems, investigates their causes, proposes bounded interventions, executes approved actions through external tools, observes outcomes, and learns from previous incidents.
 
@@ -10,7 +18,7 @@ Its first complete domain is **Sentinel Revenue Intelligence**, a Razorpay Test 
 
 > **AI proposes. Evidence supports. Policy decides. Tools execute. Outcomes teach.**
 
-This README is the ten-phase development plan for evolving the existing Java/Spring Boot RAG prototype into a Buildathon-ready operational AI system.
+This README records the completed ten-phase development plan and the independently reproducible evidence for the release.
 
 ## Product objective
 
@@ -42,9 +50,9 @@ Measure recovered revenue and retain the audit trail
 
 The project must remain domain-extensible. Sentinel Core owns reasoning, orchestration, memory, policy, tools, audit, and evaluation. The Revenue Recovery domain owns payments, failure detection, recovery strategies, financial guardrails, and Razorpay integration.
 
-## Current baseline
+## Preserved engineering baseline
 
-The repository already contains:
+The original prototype provided:
 
 - Java 17 and Spring Boot 3.3
 - `POST /investigate`
@@ -96,7 +104,7 @@ This baseline must continue working while the platform is expanded. The revenue 
 
 The Java backend remains the system of record. PostgreSQL is the only required infrastructure service. The dashboard is a separate Next.js and TypeScript application.
 
-## Status: Phase 9 of 10 complete
+## Status: Phase 10 of 10 complete
 
 | Phase | Focus | Status | Outcome |
 |---|---|---|---|
@@ -109,7 +117,7 @@ The Java backend remains the system of record. PostgreSQL is the only required i
 | 7 | Outcome loop and revenue measurement | Complete | Signed idempotent outcomes and reconciled Test Mode metrics |
 | 8 | Operational dashboard | Complete | Complete workflow visible without relying on Postman |
 | 9 | Evaluation, testing, and resilience | Complete | Reproducible quality, safety, and failure evidence |
-| 10 | Integration, release, and submission | Next | Reproducible Buildathon-ready release and demo |
+| 10 | Integration, release, and submission | Complete | One-command Compose release, verified docs, and release hygiene |
 
 ---
 
@@ -547,8 +555,8 @@ $env:RAZORPAY_KEY_SECRET="your_test_secret"
 mvn -Dtest=RazorpayTestModeSmokeTest test
 ```
 
-Phase 6 does not process payment outcomes; webhook verification and revenue
-measurement remain Phase 7.
+The Phase 6 implementation stopped at execution; Phase 7 subsequently added
+webhook verification and revenue measurement without changing execution authority.
 
 ---
 
@@ -642,9 +650,9 @@ as `RAZORPAY_WEBHOOK_SECRET`. Razorpay recommends a zrok tunnel for local demos
 when common tunnel services are unavailable. Never expose a local development
 database or management port through the tunnel.
 
-Known limitations: Phase 7 handles the three Payment Link lifecycle events
-needed for the buildathon, stores no full customer payload, performs no dashboard
-updates, and does not implement generic payment/order webhook families.
+Known limitations: the outcome loop handles the three Payment Link lifecycle
+events needed for the buildathon, stores no full customer payload, does not push
+browser updates, and does not implement generic payment/order webhook families.
 
 ---
 
@@ -785,18 +793,13 @@ Phase 9 is complete when all zero-tolerance gates pass, policy compliance is 100
 
 **Goal:** Freeze features and deliver a reproducible, polished Buildathon release.
 
-### Work
+### Release result
 
-- Integrate the complete path from dataset load through measured recovery.
-- Fix defects only; do not introduce risky experimental features during release hardening.
-- Containerize or otherwise document repeatable PostgreSQL, backend, and dashboard startup.
-- Add configuration examples with placeholder credentials.
-- Publish architecture, API, evaluation, privacy, operations, and demo documentation.
-- Create the five-minute demo script and stable synthetic scenario.
-- Capture screenshots and a backup demo recording.
-- Clean the public repository, verify licensing, and scan for secrets and generated files.
-- Test setup, migrations, seed data, failure paths, reset, and the demo from a clean environment.
-- Record known limitations and a post-Buildathon roadmap for additional Sentinel domain packs.
+- `docker compose up --build` starts PostgreSQL, runs Flyway V1–V7, waits for the backend health check, and serves the dashboard.
+- [`.env.example`](.env.example) documents the Gemini, Razorpay Test Mode, and database configuration without real credentials.
+- [SETUP.md](SETUP.md) is the nine-step setup/demo card; [ARCHITECTURE.md](ARCHITECTURE.md) is the reviewer-first Mermaid system map.
+- [CONTRIBUTING.md](CONTRIBUTING.md), [LICENSE](LICENSE), Docker build contexts, non-root runtime images, health checks, and credential scans form the release boundary.
+- Phase 10 changes packaging and documentation only; the Phase 9 oracle and all business behavior remain unchanged.
 
 ### Deliverable
 
@@ -817,7 +820,7 @@ From a clean environment, the team can:
 9. Update recovered revenue exactly once.
 10. Display evaluation metrics and the complete audit trail.
 
-## Planned API surface
+## Implemented API surface
 
 ```text
 POST /investigate                                  # existing engineering flow
@@ -830,12 +833,19 @@ POST /api/v1/revenue/incidents/{id}/plan          # propose recovery
 POST /api/v1/revenue/incidents/{id}/execute       # execute an approved action
 POST /api/v1/revenue/actions/{id}/approve         # human approval
 POST /api/v1/revenue/actions/{id}/reject          # human rejection
+POST /api/v1/revenue/actions/{id}/cancel          # cancel an executable action
+POST /api/v1/revenue/actions/{id}/notify/{medium} # optional bounded notification
+GET  /api/v1/revenue/approvals                    # pending human decisions
 GET  /api/v1/revenue/metrics                      # evaluation/recovery metrics
 GET  /api/v1/revenue/incidents/{id}/audit-trail   # immutable incident timeline
 POST /api/v1/webhooks/razorpay                    # signed outcome events
 
 POST /api/v1/demo/reset                           # reset synthetic demo state
 POST /api/v1/demo/inject/upi-outage               # repeatable demo incident
+
+GET  /api/v1/evaluation/report                    # latest deterministic proof
+POST /api/v1/evaluation/run                       # regenerate deterministic proof
+GET  /api/v1/evaluation/report.{json|md}          # downloadable proof artifacts
 ```
 
 ## Priority rules
@@ -945,10 +955,7 @@ The operational dashboard lives in `dashboard/` as a separate Next.js and TypeSc
 
 ### Run locally
 
-1. Start PostgreSQL and the Sentinel backend as described above. The backend listens on `http://localhost:8080` by default.
-2. Copy `dashboard/.env.example` to `dashboard/.env.local`. Keep `NEXT_PUBLIC_USE_FIXTURES=false` for the real demonstration.
-3. From `dashboard/`, run `npm install` and then `npm run dev`.
-4. Open `http://localhost:3000`.
+Use the one-command release in [SETUP.md](SETUP.md). For dashboard-only development, start the backend, copy `dashboard/.env.example` to `dashboard/.env.local`, run `npm ci` and `npm run dev` from `dashboard/`, then open `http://localhost:3000`.
 
 Only `NEXT_PUBLIC_SENTINEL_API_URL` belongs in the browser configuration. Razorpay keys and the webhook secret stay in backend environment variables.
 
@@ -986,6 +993,9 @@ This runs linting, strict TypeScript checking, focused workflow tests, and the p
 
 Phase 1 follows primary documentation and representative open-source implementations:
 
+- [Docker Compose](https://docs.docker.com/compose/)
+- [Mermaid](https://mermaid.js.org/)
+- [Gitleaks](https://github.com/gitleaks/gitleaks)
 - [Spring Boot type-safe external configuration and validation](https://docs.spring.io/spring-boot/reference/features/external-config.html)
 - [Spring Framework REST error handling](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-ann-rest-exceptions.html)
 - [Google Gemini structured output](https://ai.google.dev/gemini-api/docs/structured-output)
@@ -1007,3 +1017,6 @@ Phase 1 follows primary documentation and representative open-source implementat
 - [Razorpay Payment Link states](https://razorpay.com/docs/payments/payment-links/states/)
 - [zrok local tunnel](https://zrok.io/)
 
+## License
+
+[MIT](LICENSE)

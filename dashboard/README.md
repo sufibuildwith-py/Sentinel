@@ -5,7 +5,7 @@ The dashboard is the Test Mode operational surface for Sentinel's complete reven
 ## Setup
 
 ```powershell
-npm install
+npm ci
 Copy-Item .env.example .env.local
 npm run dev
 ```
@@ -33,3 +33,5 @@ The scorecard deliberately exposes the numerator/denominator, confusion matrix, 
 ## Safety boundary
 
 The browser receives operational summaries only. Razorpay credentials, webhook bodies, raw payment data, and customer identifiers remain server-side. Every financial surface is explicitly labelled **TEST MODE / SYNTHETIC EVALUATION**.
+
+For the complete PostgreSQL, migration, backend, and dashboard stack, follow the repository-level [`SETUP.md`](../SETUP.md).
