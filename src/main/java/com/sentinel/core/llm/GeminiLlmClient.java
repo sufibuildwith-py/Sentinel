@@ -12,6 +12,7 @@ import com.sentinel.core.error.UpstreamTimeoutException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -29,17 +30,30 @@ public class GeminiLlmClient implements LlmClient {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final Validator validator;
+    private final GeminiCallGuard callGuard;
 
+    @Autowired
     public GeminiLlmClient(
             GeminiProperties properties,
             @Qualifier("geminiHttpClient") HttpClient httpClient,
             ObjectMapper objectMapper,
-            Validator validator
+            Validator validator,
+            GeminiCallGuard callGuard
     ) {
         this.properties = properties;
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
         this.validator = validator;
+        this.callGuard = callGuard;
+    }
+
+    public GeminiLlmClient(GeminiProperties properties, HttpClient httpClient,
+                           ObjectMapper objectMapper, Validator validator) {
+        this.properties = properties;
+        this.httpClient = httpClient;
+        this.objectMapper = objectMapper;
+        this.validator = validator;
+        this.callGuard = null;
     }
 
     @Override
@@ -81,7 +95,9 @@ public class GeminiLlmClient implements LlmClient {
 
     private String send(HttpRequest request, String serviceName) {
         try {
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = callGuard == null
+                    ? httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+                    : callGuard.send(httpClient, request, serviceName);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new UpstreamServiceException(serviceName, response.statusCode());
             }

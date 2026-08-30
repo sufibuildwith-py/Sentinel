@@ -1,0 +1,16 @@
+gemini:
+  api-key: test-placeholder-key
+
+sentinel:
+  razorpay:
+    enabled: false
+    key-id: rzp_test_placeholder
+    key-secret: test-placeholder-secret
+    webhook:
+      secret: test-placeholder-webhook-secret
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/sentinel_test
+    username: sentinel_test
+    password: sentinel_test

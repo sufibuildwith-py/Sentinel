@@ -23,6 +23,7 @@ public class InMemoryRunbookStore implements RunbookMemory {
 
     private final EmbeddingClient embeddingClient;
     private final RunbookProperties properties;
+    private volatile List<RawRunbook> rawRunbooks = List.of();
     private volatile List<RunbookDocument> runbooks = List.of();
 
     public InMemoryRunbookStore(EmbeddingClient embeddingClient, RunbookProperties properties) {
@@ -33,7 +34,7 @@ public class InMemoryRunbookStore implements RunbookMemory {
     @PostConstruct
     void loadRunbooks() {
         Path folder = properties.path().toAbsolutePath().normalize();
-        List<RunbookDocument> loaded = new ArrayList<>();
+        List<RawRunbook> loaded = new ArrayList<>();
 
         try (Stream<Path> files = Files.list(folder)) {
             for (Path file : files.filter(Files::isRegularFile)
@@ -41,19 +42,15 @@ public class InMemoryRunbookStore implements RunbookMemory {
                     .sorted()
                     .toList()) {
                 String content = Files.readString(file);
-                loaded.add(new RunbookDocument(
-                        file.getFileName().toString(),
-                        content,
-                        embeddingClient.embed(content)
-                ));
-                log.info("Embedded runbook: {}", file.getFileName());
+                loaded.add(new RawRunbook(file.getFileName().toString(), content));
+                log.info("Loaded runbook: {}", file.getFileName());
             }
         } catch (IOException exception) {
             throw new MemoryInitializationException("Could not load runbooks from " + folder, exception);
         }
 
-        runbooks = List.copyOf(loaded);
-        log.info("Loaded {} runbooks into memory", runbooks.size());
+        rawRunbooks = List.copyOf(loaded);
+        log.info("Loaded {} runbooks; embeddings will be initialized on first retrieval", rawRunbooks.size());
     }
 
     @Override
@@ -65,7 +62,7 @@ public class InMemoryRunbookStore implements RunbookMemory {
             throw new IllegalArgumentException("minimumSimilarity must be between -1.0 and 1.0");
         }
 
-        return runbooks.stream()
+        return embeddedRunbooks().stream()
                 .map(document -> new MemoryMatch(
                         document,
                         CosineSimilarity.calculate(queryEmbedding, document.embedding())
@@ -74,5 +71,32 @@ public class InMemoryRunbookStore implements RunbookMemory {
                 .sorted(Comparator.comparingDouble(MemoryMatch::similarity).reversed())
                 .limit(limit)
                 .toList();
+    }
+
+    private List<RunbookDocument> embeddedRunbooks() {
+        List<RunbookDocument> current = runbooks;
+        if (current.size() == rawRunbooks.size()) {
+            return current;
+        }
+
+        synchronized (this) {
+            if (runbooks.size() == rawRunbooks.size()) {
+                return runbooks;
+            }
+
+            List<RunbookDocument> embedded = rawRunbooks.stream()
+                    .map(runbook -> new RunbookDocument(
+                            runbook.source(),
+                            runbook.content(),
+                            embeddingClient.embed(runbook.content())
+                    ))
+                    .toList();
+            runbooks = List.copyOf(embedded);
+            log.info("Initialized embeddings for {} runbooks", runbooks.size());
+            return runbooks;
+        }
+    }
+
+    private record RawRunbook(String source, String content) {
     }
 }

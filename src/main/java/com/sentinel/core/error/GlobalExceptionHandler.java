@@ -15,11 +15,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import com.sentinel.revenue.webhook.InvalidWebhookSignatureException;
+import com.sentinel.core.observability.RequestContext;
+import com.sentinel.core.ratelimit.RateLimitExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
@@ -52,6 +56,28 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 path(request), List.of());
     }
 
+    @Override
+    protected ResponseEntity<Object> handleNoHandlerFoundException(
+            NoHandlerFoundException exception,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request
+    ) {
+        return response(HttpStatus.NOT_FOUND, "NOT_FOUND", "The requested endpoint was not found",
+                path(request), List.of());
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleNoResourceFoundException(
+            NoResourceFoundException exception,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request
+    ) {
+        return response(HttpStatus.NOT_FOUND, "NOT_FOUND", "The requested endpoint was not found",
+                path(request), List.of());
+    }
+
     @ExceptionHandler(UpstreamTimeoutException.class)
     ResponseEntity<Object> handleUpstreamTimeout(UpstreamTimeoutException exception, HttpServletRequest request) {
         log.warn("Upstream request timed out: {}", exception.getService());
@@ -68,7 +94,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<Object> handleIllegalArgument(IllegalArgumentException exception, HttpServletRequest request) {
-        return response(HttpStatus.BAD_REQUEST, "INVALID_ARGUMENT", exception.getMessage(),
+        log.debug("Invalid request argument", exception);
+        return response(HttpStatus.BAD_REQUEST, "INVALID_ARGUMENT", "A request argument is invalid",
                 request.getRequestURI(), List.of());
     }
 
@@ -81,7 +108,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(IllegalStateException.class)
     ResponseEntity<Object> handleIllegalState(IllegalStateException exception, HttpServletRequest request) {
-        return response(HttpStatus.CONFLICT, "STATE_CONFLICT", exception.getMessage(),
+        log.debug("Request state conflict", exception);
+        return response(HttpStatus.CONFLICT, "STATE_CONFLICT", "The request conflicts with current resource state",
                 request.getRequestURI(), List.of());
     }
 
@@ -108,6 +136,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 httpStatus.getReasonPhrase(),
                 "HTTP_REQUEST_ERROR",
                 "The HTTP request could not be processed",
+                requestId(),
                 path(request),
                 List.of()
         );
@@ -122,8 +151,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             List<FieldViolation> violations
     ) {
         ApiError error = new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), code,
-                message, path, violations);
+                message, requestId(), path, violations);
         return ResponseEntity.status(status).body(error);
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    ResponseEntity<Object> handleRateLimitExceeded(RateLimitExceededException exception,
+                                                    HttpServletRequest request) {
+        ApiError error = new ApiError(Instant.now(), HttpStatus.TOO_MANY_REQUESTS.value(),
+                HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase(), "RATE_LIMIT_EXCEEDED",
+                "Rate limit exceeded. Please wait before retrying.", requestId(),
+                request.getRequestURI(), List.of());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, Long.toString(exception.retryAfterSeconds()))
+                .body(error);
+    }
+
+    private String requestId() {
+        String requestId = RequestContext.getRequestId();
+        return requestId == null || requestId.isBlank() ? "unavailable" : requestId;
     }
 
     private String path(WebRequest request) {

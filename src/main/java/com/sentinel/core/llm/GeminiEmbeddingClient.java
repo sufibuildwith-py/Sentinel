@@ -9,6 +9,7 @@ import com.sentinel.core.error.InvalidModelResponseException;
 import com.sentinel.core.error.UpstreamServiceException;
 import com.sentinel.core.error.UpstreamTimeoutException;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -23,13 +24,25 @@ public class GeminiEmbeddingClient implements EmbeddingClient {
     private final GeminiProperties properties;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
+    private final GeminiCallGuard callGuard;
 
+    @Autowired
     public GeminiEmbeddingClient(GeminiProperties properties,
                                 @Qualifier("geminiHttpClient") HttpClient httpClient,
-                                ObjectMapper objectMapper) {
+                                ObjectMapper objectMapper,
+                                GeminiCallGuard callGuard) {
         this.properties = properties;
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
+        this.callGuard = callGuard;
+    }
+
+    public GeminiEmbeddingClient(GeminiProperties properties, HttpClient httpClient,
+                                 ObjectMapper objectMapper) {
+        this.properties = properties;
+        this.httpClient = httpClient;
+        this.objectMapper = objectMapper;
+        this.callGuard = null;
     }
 
     @Override
@@ -51,7 +64,9 @@ public class GeminiEmbeddingClient implements EmbeddingClient {
                 .build();
 
         try {
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = callGuard == null
+                    ? httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+                    : callGuard.send(httpClient, request, "Gemini embedding");
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new UpstreamServiceException("Gemini embedding", response.statusCode());
             }
