@@ -129,7 +129,7 @@ public class RecoveryExecutionService {
                 return fail(incident, action, createFailure);
             }
         } catch (RazorpayFailure failure) {
-            return pending(incident, action, failure, failure.kind() == RazorpayFailure.Kind.AMBIGUOUS);
+            return pending(incident, action, failure, isUncertain(failure));
         }
     }
 
@@ -188,6 +188,11 @@ public class RecoveryExecutionService {
                 List.of("safeError=" + failure.safeCode()), "No blind create retry",
                 null, "TEST");
         return response(incident.getIncidentId(), action, false, "Provider unavailable; safe reconciliation required");
+    }
+
+    private boolean isUncertain(RazorpayFailure failure) {
+        return failure.kind() == RazorpayFailure.Kind.AMBIGUOUS
+                || failure.kind() == RazorpayFailure.Kind.CIRCUIT_OPEN;
     }
 
     private RecoveryExecutionResponse fail(RevenueIncident incident, RecoveryAction action, RazorpayFailure failure) {

@@ -87,4 +87,8 @@ public class WebhookEvent {
         this.incidentId = incidentId;
         this.processedAt = processedAt;
     }
+
+    public void associateIncident(UUID incidentId) {
+        this.incidentId = incidentId;
+    }
 }

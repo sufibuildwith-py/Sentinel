@@ -31,4 +31,6 @@ public interface RecoveryActionRepository extends JpaRepository<RecoveryAction, 
     Optional<RecoveryAction> findForWebhookByExternalResourceId(String providerLinkId);
 
     Optional<RecoveryAction> findByExternalResourceId(String providerLinkId);
+
+    Optional<RecoveryAction> findFirstByIncidentIncidentIdOrderByCreatedAtDesc(UUID incidentId);
 }

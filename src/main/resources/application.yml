@@ -33,6 +33,7 @@ sentinel:
     demo-requests-per-minute: ${RATE_LIMIT_DEMO_PER_MINUTE:10}
     execution-requests-per-minute: ${RATE_LIMIT_EXECUTION_PER_MINUTE:5}
     evaluation-requests-per-minute: ${RATE_LIMIT_EVALUATION_PER_MINUTE:3}
+    webhook-requests-per-minute: ${RATE_LIMIT_WEBHOOK_PER_MINUTE:60}
   evaluation:
     seed: 20260901
     scenarios-per-category: 16
@@ -54,6 +55,10 @@ sentinel:
     notifications-enabled: false
     webhook:
       secret: ${RAZORPAY_WEBHOOK_SECRET:}
+  recovery:
+    worker:
+      enabled: ${RECOVERY_WORKER_ENABLED:true}
+      fixed-delay: ${RECOVERY_WORKER_DELAY:30s}
   policy:
     auto-confidence-threshold: 0.85
     maximum-auto-amount-minor: 100000
@@ -113,6 +118,12 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     enabled: ${SWAGGER_ENABLED:true}
+
+razorpay:
+  enabled: ${RAZORPAY_ENABLED:false}
+  key:
+    id: ${RAZORPAY_KEY_ID:}
+    secret: ${RAZORPAY_KEY_SECRET:}
 
 resilience4j:
   circuitbreaker:

@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.Set;
 
 @Service
 public class RecoveryJobService {
@@ -25,8 +26,22 @@ public class RecoveryJobService {
     }
 
     @Transactional
+    public RecoveryJob createJobIfAbsent(UUID incidentId, UUID policyDecisionId, String strategy) {
+        return repository.findFirstByIncidentIdAndStrategyAndStatusInOrderByCreatedAtDesc(
+                        incidentId, strategy, Set.of(RecoveryJob.PENDING, RecoveryJob.RUNNING))
+                .orElseGet(() -> repository.saveAndFlush(new RecoveryJob(
+                        incidentId, policyDecisionId, strategy, 3, Instant.now())));
+    }
+
+    @Transactional(readOnly = true)
+    public RecoveryJob get(UUID jobId) {
+        return find(jobId);
+    }
+
+    @Transactional
     public RecoveryJob markRunning(UUID jobId) {
-        RecoveryJob job = find(jobId);
+        RecoveryJob job = repository.findForUpdateById(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("Recovery job not found: " + jobId));
         job.markRunning(Instant.now());
         return repository.saveAndFlush(job);
     }

@@ -54,6 +54,9 @@ public final class RateLimitInterceptor implements HandlerInterceptor {
         if (path.equals("/api/v1/evaluation/run")) {
             return new Limit("evaluation", properties.evaluationRequestsPerMinute());
         }
+        if (path.equals("/api/v1/webhooks/razorpay")) {
+            return new Limit("razorpay-webhook", properties.webhookRequestsPerMinute());
+        }
         return null;
     }
 

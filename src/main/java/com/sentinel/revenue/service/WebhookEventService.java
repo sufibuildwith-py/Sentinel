@@ -28,7 +28,7 @@ public class WebhookEventService {
         try {
             return repository.saveAndFlush(new WebhookEvent(
                     eventId, eventType, payload, signature,
-                    false, false, null, Instant.now(), null));
+                    true, false, null, Instant.now(), null));
         } catch (DataIntegrityViolationException duplicate) {
             throw new IllegalArgumentException("Webhook event already exists: " + eventId, duplicate);
         }
@@ -44,6 +44,14 @@ public class WebhookEventService {
         WebhookEvent event = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Webhook event not found: " + id));
         event.markProcessed(incidentId, Instant.now());
+        return repository.saveAndFlush(event);
+    }
+
+    @Transactional
+    public WebhookEvent associateIncident(UUID id, UUID incidentId) {
+        WebhookEvent event = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Webhook event not found: " + id));
+        event.associateIncident(incidentId);
         return repository.saveAndFlush(event);
     }
 

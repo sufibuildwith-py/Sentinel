@@ -74,4 +74,9 @@ public class ProviderOrder {
     public String getIdempotencyKey() { return idempotencyKey; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    public void updateProviderState(String status, String providerReference) {
+        this.status = status;
+        this.providerReference = providerReference;
+    }
 }

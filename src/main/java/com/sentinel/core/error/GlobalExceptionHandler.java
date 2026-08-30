@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import com.sentinel.revenue.webhook.InvalidWebhookSignatureException;
+import com.sentinel.revenue.webhook.InvalidWebhookSignatureBadRequestException;
 import com.sentinel.core.observability.RequestContext;
 import com.sentinel.core.ratelimit.RateLimitExceededException;
 
@@ -153,6 +154,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ApiError error = new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), code,
                 message, requestId(), path, violations);
         return ResponseEntity.status(status).body(error);
+    }
+
+    @ExceptionHandler(InvalidWebhookSignatureBadRequestException.class)
+    ResponseEntity<Object> handleInvalidWebhookSignatureBadRequest(
+            InvalidWebhookSignatureBadRequestException exception,
+            HttpServletRequest request) {
+        return response(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK_SIGNATURE",
+                "Webhook signature validation failed", request.getRequestURI(), List.of());
     }
 
     @ExceptionHandler(RateLimitExceededException.class)
