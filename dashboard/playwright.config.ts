@@ -22,6 +22,9 @@ export default defineConfig({
     url: "http://localhost:3000/evaluation",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    env: { NEXT_PUBLIC_USE_FIXTURES: "true" },
+    env: {
+      NEXT_PUBLIC_USE_FIXTURES: process.env.NEXT_PUBLIC_USE_FIXTURES ?? "true",
+      NEXT_PUBLIC_SENTINEL_API_URL: process.env.NEXT_PUBLIC_SENTINEL_API_URL ?? "http://localhost:8080",
+    },
   },
 });
