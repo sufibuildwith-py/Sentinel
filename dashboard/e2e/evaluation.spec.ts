@@ -53,3 +53,20 @@ test("V2 proof routes preserve truth labels and do not invent fixture results", 
   await expect(page.getByText("Historical corpus unavailable in fixture mode")).toBeVisible();
   await expect(page.getByText("500", { exact: true })).toHaveCount(0);
 });
+
+test("operator workspaces remain honest and responsive in fixture mode", async ({ page }) => {
+  for (const [path, heading] of [
+    ["/recovery", "Governed recovery workbench"],
+    ["/intelligence", "Recovery economics, before authority"],
+    ["/governance", "Authority remains deterministic"],
+    ["/audit", "Immutable decision evidence"],
+  ] as const) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+    expect(overflow).toBe(false);
+  }
+  await page.goto("/intelligence");
+  await expect(page.getByText("Marketplace unavailable in fixture mode")).toBeVisible();
+  await expect(page.getByText("No values were inferred", { exact: false })).toBeVisible();
+});

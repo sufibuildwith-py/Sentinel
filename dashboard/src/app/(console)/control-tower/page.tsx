@@ -7,6 +7,8 @@ import { api, money, shortId } from "@/lib/api";
 import { ErrorState, PageHeader, StateBadge } from "@/components/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TruthBadge } from "@/components/console-ui";
+import { durationLabel } from "@/lib/truth";
 
 export default function ControlTowerPage() {
   const tower = useQuery({ queryKey: ["control-tower"], queryFn: api.controlTower });
@@ -21,7 +23,7 @@ export default function ControlTowerPage() {
 
   return <div>
     <PageHeader eyebrow="Control tower" title="Merchant recovery command plane" description="A single governed view of payment health, opportunity, authority, execution truth, and learning posture." onRefresh={refresh} refreshing={tower.isFetching} updated={new Date(data.generatedAt)} />
-    <div className="mb-5 flex flex-wrap gap-2">{data.truthLabels.map((label) => <TruthLabel key={label} label={label} />)}</div>
+    <div className="mb-5 flex flex-wrap gap-2">{data.truthLabels.map((label) => <TruthBadge key={label} label={label} />)}</div>
 
     <section className="grid gap-4 xl:grid-cols-[1.25fr_.75fr]">
       <Panel icon={RadioTower} eyebrow="Payment health radar" title={activeSignals.length ? `${activeSignals.length} active systemic signals` : "No active systemic signal"}>
@@ -37,7 +39,7 @@ export default function ControlTowerPage() {
     <section className="mt-4 grid gap-4 lg:grid-cols-2">
       <Panel icon={CircleDollarSign} eyebrow="Revenue leakage" title="Financial truth waterfall">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><Kpi label="Failed" value={money(data.financialAttribution.failedValueMinor)} tone="text-[#ef4444]" /><Kpi label="Addressable" value={money(data.financialAttribution.addressableValueMinor)} /><Kpi label="Provider confirmed" value={money(data.financialAttribution.providerConfirmedRecoveryMinor)} tone="text-[#22c55e]" /><Kpi label="Unreconciled" value={money(data.financialAttribution.unreconciledExecutedValueMinor)} tone="text-[#f59e0b]" /></div>
-        <div className="mt-5 grid grid-cols-4 gap-2">{Object.entries(data.financialAttribution.timings).map(([name, timing]) => <div key={name} className="border border-white/[0.06] p-3"><p className="font-mono text-[10px] uppercase text-[#444444]">{name}</p><p className="mt-2 font-mono text-xs">{timing.averageMillis == null ? "—" : `${(timing.averageMillis / 1000).toFixed(1)}s`}</p></div>)}</div>
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">{Object.entries(data.financialAttribution.timings).map(([name, timing]) => <div key={name} className="rounded-lg border border-slate-200 bg-white/70 p-3"><p className="font-mono text-[10px] uppercase text-slate-400">{name}</p><p className="mt-2 font-mono text-xs">{durationLabel(timing.averageMillis)}</p><p className="mt-1 text-[9px] text-slate-400">{timing.samples} samples{timing.averageMillis != null && timing.averageMillis > 86_400_000 ? " · inspect outlier" : ""}</p></div>)}</div>
       </Panel>
       <Panel icon={Waypoints} eyebrow="Opportunity queue" title="Ranked in shadow, never granted authority">
         <div className="space-y-3">{data.opportunities.slice(0, 5).map((opportunity) => <div key={opportunity.decisionId} className="border-b border-white/[0.05] pb-3 last:border-0"><div className="flex items-center justify-between gap-3"><Link href={`/incidents/${opportunity.incidentId}`} className="font-mono text-xs hover:text-primary">{shortId(opportunity.incidentId)}</Link><TruthLabel label={opportunity.mode.replaceAll("_", " ")} /></div><p className="mt-2 text-sm font-medium">{opportunity.selectedAction.replaceAll("_", " ")}</p><div className="mt-2 flex flex-wrap gap-2"><StateBadge value={opportunity.policyState} /><StateBadge value={opportunity.governorState} />{opportunity.netIncrementalValueMinor != null && <span className="text-xs text-muted-foreground">Estimated {money(opportunity.netIncrementalValueMinor)}</span>}</div></div>)}{data.opportunities.length === 0 && <Empty label="No opportunity evaluations recorded." />}</div>
@@ -65,5 +67,5 @@ export default function ControlTowerPage() {
 
 function Panel({ icon: Icon, eyebrow, title, children }: { icon: typeof Activity; eyebrow: string; title: string; children: React.ReactNode }) { return <div className="glass-panel rounded-2xl p-5 sm:p-6"><div className="mb-5 flex items-start gap-3"><div className="grid size-9 shrink-0 place-items-center rounded-lg border border-primary/20 bg-primary/8"><Icon className="size-4 text-primary" /></div><div><p className="eyebrow">{eyebrow}</p><h2 className="mt-1 text-lg font-semibold">{title}</h2></div></div>{children}</div>; }
 function Kpi({ label, value, tone = "text-foreground" }: { label: string; value: string; tone?: string }) { return <div><p className={`font-mono text-lg font-bold ${tone}`}>{value}</p><p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-[#444444]">{label}</p></div>; }
-function TruthLabel({ label }: { label: string }) { const warning = label.includes("SHADOW") || label.includes("FAULT") || label.includes("AWAITING"); return <span className={`inline-flex border px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] ${warning ? "border-[#f59e0b]/30 text-[#f59e0b]" : "border-white/10 text-[#888888]"}`}>{label}</span>; }
+function TruthLabel({ label }: { label: string }) { return <TruthBadge label={label} />; }
 function Empty({ label }: { label: string }) { return <p className="py-5 text-center font-mono text-[10px] uppercase tracking-widest text-[#444444]">{label}</p>; }

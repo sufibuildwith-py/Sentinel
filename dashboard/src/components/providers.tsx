@@ -17,5 +17,5 @@ export function Providers({ children }: { children: ReactNode }) {
   const emit = useCallback((next: StatusEvent) => { setEvent(next); if (timer.current) clearTimeout(timer.current); timer.current = setTimeout(() => setEvent(null), 4200); }, []);
   const value = useMemo(() => ({ event, emit }), [event, emit]);
 
-  return <QueryClientProvider client={client}><MotionConfig reducedMotion="user" transition={{ type: "spring", duration: .2, bounce: .12 }}><StatusContext.Provider value={value}><TooltipProvider>{children}<Toaster theme="dark" position="bottom-right" /></TooltipProvider></StatusContext.Provider></MotionConfig></QueryClientProvider>;
+  return <QueryClientProvider client={client}><MotionConfig reducedMotion="user" transition={{ type: "spring", duration: .2, bounce: .12 }}><StatusContext.Provider value={value}><TooltipProvider>{children}<Toaster theme="light" position="bottom-right" /></TooltipProvider></StatusContext.Provider></MotionConfig></QueryClientProvider>;
 }

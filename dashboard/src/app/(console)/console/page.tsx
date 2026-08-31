@@ -20,11 +20,11 @@ export default function OverviewPage() {
   const focus = incidents.data?.find((item) => !["RECOVERED", "STOPPED"].includes(item.status)) ?? incidents.data?.[0];
 
   return <div>
-    <div className="-mx-4 mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-white/[0.06] bg-[#080808] px-6 py-3 font-mono text-[10px] tracking-[0.2em] uppercase sm:-mx-6 lg:-mx-8">
-      <span className="flex items-center gap-2 text-green-500"><span className={`size-1.5 rounded-full bg-green-500 ${shouldReduceMotion ? "" : "animate-pulse"}`} />System Online</span>
-      <span className="text-[#444444]">Razorpay Test Mode</span>
-      <span className="text-[#444444]">Policy Engine Active</span>
-      <span className="text-[#444444]">Fixture Mode: {fixtureMode ? "ON" : "OFF"}</span>
+    <div className="-mx-4 mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-200 bg-white/70 px-6 py-3 font-mono text-[10px] tracking-[0.2em] uppercase backdrop-blur sm:-mx-6 lg:-mx-8">
+      <span className="flex items-center gap-2 text-emerald-600"><span className={`size-1.5 rounded-full bg-emerald-500 ${shouldReduceMotion ? "" : "animate-pulse"}`} />System Online</span>
+      <span className="text-slate-500">Razorpay Test Mode</span>
+      <span className="text-slate-500">Policy Engine Active</span>
+      <span className="text-slate-500">Fixture Mode: {fixtureMode ? "ON" : "OFF"}</span>
     </div>
     <PageHeader eyebrow="Overview" title="Revenue recovery, under control" description="One operational view from anomaly detection to verified payment outcome. Values below are Razorpay Test Mode synthetic evaluation data." onRefresh={refresh} refreshing={metrics.isFetching || incidents.isFetching} updated={metrics.dataUpdatedAt ? new Date(metrics.dataUpdatedAt) : undefined} />
     <div className="mb-4 flex items-center justify-between gap-3"><span className="test-label">Test mode / Synthetic evaluation</span><span className="text-right text-xs text-muted-foreground">Reconciled from persisted actions and outcomes</span></div>

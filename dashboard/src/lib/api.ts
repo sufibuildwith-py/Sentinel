@@ -1,15 +1,19 @@
 import { fixtureApprovals, fixtureAudit, fixtureDetail, fixtureIncidents, fixtureMetrics } from "./fixtures";
 import { fixtureEvaluation } from "./evaluation-fixture";
-import type { Approval, AuditEntry, ControlTower, DecisionCertificate, EvaluationReport, EvidenceCapsule, ExecutionResult, FailureLabResult, FailureLabScenario, FinancialAttribution, HistoricalValidationReport, IncidentDetail, IncidentSummary, LostRevenueExplorer, Metrics, PlanningResult, RecoveryOlympicsReport } from "./types";
+import type { ActionMarketplace, Approval, AuditEntry, ControlTower, CounterfactualEstimate, CustomerRecoveryProfile, DecisionCertificate, EvaluationReport, EvidenceCapsule, ExecutionResult, FailureLabResult, FailureLabScenario, FinancialAttribution, HistoricalValidationReport, IncidentDetail, IncidentSummary, LlmDiagnostic, LostRevenueExplorer, Metrics, PlanningResult, RecoveryCostEntry, RecoveryOlympicsReport, RegisteredModel, TimingRecommendation } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_SENTINEL_API_URL ?? "http://localhost:8080";
 const USE_FIXTURES = process.env.NEXT_PUBLIC_USE_FIXTURES === "true";
+
+export class SentinelApiError extends Error {
+  constructor(message: string, readonly status: number, readonly requestId?: string) { super(message); this.name = "SentinelApiError"; }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, { ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error((body as { message?: string }).message ?? `Sentinel API returned ${response.status}`);
+    throw new SentinelApiError((body as { message?: string }).message ?? `Sentinel API returned ${response.status}`, response.status, response.headers.get("X-Request-Id") ?? undefined);
   }
   return response.status === 204 ? (undefined as T) : response.json();
 }
@@ -108,6 +112,14 @@ export const api = {
   recoveryOlympics: () => USE_FIXTURES ? delay<RecoveryOlympicsReport>({ title: "Recovery Olympics", truthLabel: "SYNTHETIC / CONTROLLED BENCHMARK", datasetVersion: "requires-live-evaluation-api", seed: 20260901, datasetSize: 0, frozenSplit: { DEVELOPMENT: 0, HELD_OUT: 0, ADVERSARIAL: 0 }, arms: [], integrityRules: [], simulatorAssumptions: [], limitations: ["Connect the evaluation API to generate benchmark results; no numbers are fabricated in fixture mode."] }) : request<RecoveryOlympicsReport>("/api/v1/evaluation/recovery-olympics"),
   historicalValidation: () => USE_FIXTURES ? delay<HistoricalValidationReport>({ title: "Razorpay Historical Validation", truthLabel: "PUBLIC-SOURCE HISTORICAL VALIDATION", corpusVersion: "requires-live-evaluation-api", manifestSha256: "UNAVAILABLE_IN_FIXTURE_MODE", acceptedPublicSourceCases: 0, derivedReplayCount: 0, oldestSourceDate: "UNKNOWN", newestSourceDate: "UNKNOWN", sourceComposition: {}, passed: 0, partial: 0, failed: 0, safeRefusals: 0, unsafeExecutions: 0, duplicateFinancialEffects: 0, unverifiedRecoveryClaims: 0, decisionTraceCompleteness: 0, replayDeterminismRate: 0, cases: [], limitations: ["Connect the live evaluation API to load the frozen public-source corpus; fixture mode does not invent historical cases."] }) : request<HistoricalValidationReport>("/api/v1/evaluation/historical"),
   decisionCertificates: (incidentId: string) => USE_FIXTURES ? delay<DecisionCertificate[]>([]) : request<DecisionCertificate[]>(`/api/v1/revenue/incidents/${incidentId}/decision-certificates`),
+  actionMarketplace: () => USE_FIXTURES ? delay<ActionMarketplace>({ version: "fixture-unavailable", actions: [] }) : request<ActionMarketplace>("/api/v1/revenue/action-marketplace"),
+  counterfactuals: (incidentId: string) => USE_FIXTURES ? delay<CounterfactualEstimate[]>([]) : request<CounterfactualEstimate[]>(`/api/v1/revenue/incidents/${incidentId}/counterfactuals`),
+  timingRecommendation: (incidentId: string) => USE_FIXTURES ? delay<TimingRecommendation | null>(null) : request<TimingRecommendation>(`/api/v1/revenue/incidents/${incidentId}/timing-recommendation`),
+  recoveryCosts: (incidentId: string) => USE_FIXTURES ? delay<RecoveryCostEntry[]>([]) : request<RecoveryCostEntry[]>(`/api/v1/revenue/incidents/${incidentId}/recovery-costs`),
+  customerRecoveryProfile: (incidentId: string) => USE_FIXTURES ? delay<CustomerRecoveryProfile | null>(null) : request<CustomerRecoveryProfile>(`/api/v1/revenue/incidents/${incidentId}/customer-recovery-profile`),
+  models: () => USE_FIXTURES ? delay<RegisteredModel[]>([]) : request<RegisteredModel[]>("/api/v1/revenue/models"),
+  killSwitches: () => USE_FIXTURES ? delay<Record<string, boolean>>({}) : request<Record<string, boolean>>("/api/v1/revenue/governor/kill-switches"),
+  llmDiagnostics: () => USE_FIXTURES ? delay<LlmDiagnostic>({ provider: "GEMINI", configured: false, model: "unavailable-in-fixture-mode", lastInvocation: "NOT_INVOKED", lastResult: "FIXTURE_MODE" }) : request<LlmDiagnostic>("/api/v1/diagnostics/llm"),
   evaluationDownloadUrl: (format: "json" | "md") => `${API_URL}/api/v1/evaluation/report.${format}`,
 };
 
