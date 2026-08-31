@@ -1,7 +1,9 @@
 package com.sentinel.revenue.investigation;
 
 import com.sentinel.core.agent.*;
+import com.sentinel.core.llm.LlmRuntimeStatus;
 import jakarta.validation.Validator;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -14,11 +16,18 @@ public class RootCauseAgent implements SentinelAgent<RootCauseInput, RootCauseRe
     private final PromptContextBuilder prompts;
     private final StructuredLlmGateway llm;
     private final Validator validator;
+    private final LlmRuntimeStatus runtimeStatus;
 
-    public RootCauseAgent(PromptContextBuilder prompts, StructuredLlmGateway llm, Validator validator) {
+    @Autowired
+    public RootCauseAgent(PromptContextBuilder prompts, StructuredLlmGateway llm, Validator validator, LlmRuntimeStatus runtimeStatus) {
         this.prompts = prompts;
         this.llm = llm;
         this.validator = validator;
+        this.runtimeStatus = runtimeStatus;
+    }
+
+    public RootCauseAgent(PromptContextBuilder prompts, StructuredLlmGateway llm, Validator validator) {
+        this(prompts, llm, validator, null);
     }
 
     @Override
@@ -38,7 +47,10 @@ public class RootCauseAgent implements SentinelAgent<RootCauseInput, RootCauseRe
             }
         }
         boolean fallback = output == null;
-        if (fallback) output = deterministic(input);
+        if (fallback) {
+            if (runtimeStatus != null) runtimeStatus.record("FALLBACK");
+            output = deterministic(input);
+        }
         RootCauseResult result = output;
         List<Evidence> evidence = result.evidence().stream().map(line -> new Evidence(
                 fallback ? "deterministic-fallback" : "validated-llm", line,

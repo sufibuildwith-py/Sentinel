@@ -2,6 +2,8 @@ package com.sentinel.revenue.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -41,6 +43,10 @@ public class ProviderOrder {
     @Column(name = "idempotency_key", nullable = false, unique = true, length = 255)
     private String idempotencyKey;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "execution_mode", nullable = false, length = 32)
+    private ExecutionMode executionMode = ExecutionMode.LEGACY_UNSPECIFIED;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -55,6 +61,13 @@ public class ProviderOrder {
     public ProviderOrder(UUID incidentId, String razorpayOrderId, long amountPaise,
                          String currency, String status, String providerReference,
                          String idempotencyKey) {
+        this(incidentId, razorpayOrderId, amountPaise, currency, status, providerReference,
+                idempotencyKey, ExecutionMode.LEGACY_UNSPECIFIED);
+    }
+
+    public ProviderOrder(UUID incidentId, String razorpayOrderId, long amountPaise,
+                         String currency, String status, String providerReference,
+                         String idempotencyKey, ExecutionMode executionMode) {
         this.incidentId = incidentId;
         this.razorpayOrderId = razorpayOrderId;
         this.amountPaise = amountPaise;
@@ -62,6 +75,7 @@ public class ProviderOrder {
         this.status = status == null ? "CREATED" : status;
         this.providerReference = providerReference;
         this.idempotencyKey = idempotencyKey;
+        this.executionMode = executionMode == null ? ExecutionMode.LEGACY_UNSPECIFIED : executionMode;
     }
 
     public UUID getId() { return id; }
@@ -72,6 +86,7 @@ public class ProviderOrder {
     public String getStatus() { return status; }
     public String getProviderReference() { return providerReference; }
     public String getIdempotencyKey() { return idempotencyKey; }
+    public ExecutionMode getExecutionMode() { return executionMode; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 

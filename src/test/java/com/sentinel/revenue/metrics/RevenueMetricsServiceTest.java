@@ -50,4 +50,35 @@ class RevenueMetricsServiceTest {
         assertThat(metrics.strategyPerformance()).singleElement()
                 .satisfies(strategy -> assertThat(strategy.recoveredRevenueMinor()).isEqualTo(7_500));
     }
+
+    @Test void providerAcceptanceWithoutReconciliationNeverIncrementsRecoveredRevenue() {
+        RevenueIncidentRepository incidents = mock(RevenueIncidentRepository.class);
+        RecoveryActionRepository actions = mock(RecoveryActionRepository.class);
+        RecoveryOutcomeRepository outcomes = mock(RecoveryOutcomeRepository.class);
+        RecoveryPlanRepository plans = mock(RecoveryPlanRepository.class);
+        RevenueIncident incident = new RevenueIncident("UPI", RevenueIncidentStatus.MONITORING, "HIGH",
+                50_000, Instant.now(), List.of("p1"), List.of("c1"), List.of(), null, null);
+        ReflectionTestUtils.setField(incident, "incidentId", UUID.randomUUID());
+        RecoveryPlan plan = new RecoveryPlan(incident, RecoveryStrategy.ALTERNATIVE_PAYMENT_LINK,
+                "test", 1, 10_000, new BigDecimal("0.9"), 8_000, RiskLevel.LOW, Instant.now());
+        ReflectionTestUtils.setField(plan, "id", UUID.randomUUID());
+        RecoveryAction action = RecoveryAction.fromPersistedPolicy(plan, incident,
+                new PolicyEvaluation(PolicyDecision.AUTO, List.of(new PolicyRuleResult("T", RuleOutcome.PASS,
+                        "1", "=", "1", false, "test")), "test"), 10_000, Instant.now());
+        ReflectionTestUtils.setField(action, "id", UUID.randomUUID());
+        action.claim("p1", "c1", "INR", 10_000, "sntl", Instant.now(), Instant.now().plusSeconds(60));
+        action.complete("plink_1", "https://rzp.io/i/x", "created", Instant.now(),
+                ExecutionMode.RAZORPAY_TEST_MODE);
+        RecoveryOutcome unconfirmed = new RecoveryOutcome(action, incident, RecoveryOutcomeStatus.RECOVERED,
+                10_000, Instant.now(), null);
+        when(incidents.findAll()).thenReturn(List.of(incident));
+        when(actions.findAll()).thenReturn(List.of(action));
+        when(outcomes.findAll()).thenReturn(List.of(unconfirmed));
+        when(plans.findById(plan.getId())).thenReturn(Optional.of(plan));
+
+        RevenueMetrics metrics = new RevenueMetricsService(incidents, actions, outcomes, plans).metrics();
+
+        assertThat(metrics.attemptedRecoveryMinor()).isEqualTo(10_000);
+        assertThat(metrics.recoveredRevenueMinor()).isZero();
+    }
 }

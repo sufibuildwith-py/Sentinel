@@ -58,7 +58,7 @@ sentinel:
   recovery:
     worker:
       enabled: ${RECOVERY_WORKER_ENABLED:true}
-      fixed-delay: ${RECOVERY_WORKER_DELAY:30s}
+      fixed-delay: ${RECOVERY_WORKER_DELAY:30000}
   policy:
     auto-confidence-threshold: 0.85
     maximum-auto-amount-minor: 100000
@@ -99,6 +99,38 @@ sentinel:
       - CAPTURED
       - AUTHORIZED
     merchant-metadata-key: merchantId
+  payment-health:
+    minimum-volume: 10
+    success-rate-drop: 0.20
+    failure-rate-increase: 0.20
+    failure-velocity-multiplier: 2.0
+    concentration-threshold: 0.60
+    revenue-exposure-minor: 100000
+    recovery-tool-error-rate: 0.30
+  governor:
+    max-total-value-minor: 10000000
+    max-incidents: 100
+    max-value-per-incident-minor: 100000
+    max-provider-calls-per-minute: 30
+    max-customer-contacts: 20
+    max-retry-count: 3
+    max-concurrent-jobs: 10
+    max-tool-failure-rate: 0.25
+    max-unreconciled-value-minor: 500000
+    canary-size: 2
+    required-reconciled-count: 2
+  communication:
+    quiet-hours-start: "21:00"
+    quiet-hours-end: "08:00"
+    max-contacts-per-24-hours: 2
+    maximum-promise-days: 30
+    allowed-templates:
+      - PAYMENT_RECOVERY_LINK
+      - PAYMENT_REMINDER
+      - PROMISE_REMINDER
+  opportunity:
+    maturity: M0
+    mode: SHADOW_ONLY
 
 management:
   endpoints:

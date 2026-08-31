@@ -44,6 +44,24 @@ public class RecoveryOutcome {
     @Column(name = "source_event_id", length = 128)
     private String sourceEventId;
 
+    @Column(name = "provider_confirmed", nullable = false)
+    private boolean providerConfirmed;
+
+    @Column(name = "confirmation_source", length = 32)
+    private String confirmationSource;
+
+    @Column(name = "feature_schema_version", nullable = false, length = 32)
+    private String featureSchemaVersion = "recovery-v1";
+
+    @Column(name = "model_version", nullable = false, length = 64)
+    private String modelVersion = "none-deterministic";
+
+    @Column(name = "policy_version", nullable = false, length = 64)
+    private String policyVersion = "policy-v1";
+
+    @Column(name = "strategy_version", nullable = false, length = 64)
+    private String strategyVersion = "strategy-v1";
+
     protected RecoveryOutcome() {
     }
 
@@ -56,6 +74,29 @@ public class RecoveryOutcome {
         this.recoveredAmountMinor = recoveredAmountMinor;
         this.occurredAt = occurredAt;
         this.sourceEventId = sourceEventId;
+        this.providerConfirmed = sourceEventId != null && !sourceEventId.isBlank()
+                && !sourceEventId.startsWith("provider-order:");
+        this.confirmationSource = providerConfirmed ? "LEGACY_RECONCILED" : null;
+    }
+
+    public static RecoveryOutcome providerConfirmed(RecoveryAction recoveryAction,
+                                                     RevenueIncident incident,
+                                                     RecoveryOutcomeStatus status,
+                                                     long recoveredAmountMinor,
+                                                     Instant occurredAt,
+                                                     String sourceEventId,
+                                                     String confirmationSource) {
+        if (sourceEventId == null || sourceEventId.isBlank()) {
+            throw new IllegalArgumentException("Provider confirmation requires a source event");
+        }
+        if (confirmationSource == null || confirmationSource.isBlank()) {
+            throw new IllegalArgumentException("Provider confirmation source is required");
+        }
+        RecoveryOutcome outcome = new RecoveryOutcome(recoveryAction, incident, status,
+                recoveredAmountMinor, occurredAt, sourceEventId);
+        outcome.providerConfirmed = true;
+        outcome.confirmationSource = confirmationSource;
+        return outcome;
     }
 
     public UUID getId() { return id; }
@@ -65,6 +106,12 @@ public class RecoveryOutcome {
     public long getRecoveredAmountMinor() { return recoveredAmountMinor; }
     public Instant getOccurredAt() { return occurredAt; }
     public String getSourceEventId() { return sourceEventId; }
+    public boolean isProviderConfirmed() { return providerConfirmed; }
+    public String getConfirmationSource() { return confirmationSource; }
+    public String getFeatureSchemaVersion() { return featureSchemaVersion; }
+    public String getModelVersion() { return modelVersion; }
+    public String getPolicyVersion() { return policyVersion; }
+    public String getStrategyVersion() { return strategyVersion; }
 
     public boolean isTerminalPaid() { return status == RecoveryOutcomeStatus.RECOVERED; }
 
@@ -75,6 +122,7 @@ public class RecoveryOutcome {
         this.recoveredAmountMinor = cumulativeAmountMinor;
         this.occurredAt = at;
         this.sourceEventId = eventId;
+        confirmFromEvent(eventId);
         return true;
     }
 
@@ -84,6 +132,7 @@ public class RecoveryOutcome {
         this.recoveredAmountMinor = cumulativeAmountMinor;
         this.occurredAt = at;
         this.sourceEventId = eventId;
+        confirmFromEvent(eventId);
         return true;
     }
 
@@ -92,6 +141,14 @@ public class RecoveryOutcome {
         this.status = RecoveryOutcomeStatus.STOPPED;
         this.occurredAt = at;
         this.sourceEventId = eventId;
+        confirmFromEvent(eventId);
         return true;
+    }
+
+    private void confirmFromEvent(String eventId) {
+        if (eventId != null && !eventId.isBlank() && !eventId.startsWith("provider-order:")) {
+            providerConfirmed = true;
+            if (confirmationSource == null) confirmationSource = "RECONCILED_EVENT";
+        }
     }
 }

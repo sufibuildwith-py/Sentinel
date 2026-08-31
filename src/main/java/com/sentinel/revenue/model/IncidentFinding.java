@@ -49,17 +49,27 @@ public class IncidentFinding {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Column(name = "valid_until")
+    private Instant validUntil;
+
     protected IncidentFinding() {
     }
 
     public IncidentFinding(RevenueIncident incident, FindingSource source, String summary,
                            BigDecimal confidence, List<String> evidence, Instant createdAt) {
+        this(incident, source, summary, confidence, evidence, createdAt, null);
+    }
+
+    public IncidentFinding(RevenueIncident incident, FindingSource source, String summary,
+                           BigDecimal confidence, List<String> evidence, Instant createdAt,
+                           Instant validUntil) {
         this.incident = incident;
         this.source = source;
         this.summary = summary;
         this.confidence = confidence;
         this.evidence = evidence == null ? new ArrayList<>() : new ArrayList<>(evidence);
         this.createdAt = createdAt;
+        this.validUntil = validUntil;
     }
 
     public UUID getId() { return id; }
@@ -69,4 +79,5 @@ public class IncidentFinding {
     public BigDecimal getConfidence() { return confidence; }
     public List<String> getEvidence() { return List.copyOf(evidence); }
     public Instant getCreatedAt() { return createdAt; }
+    public Instant getValidUntil() { return validUntil; }
 }

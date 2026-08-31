@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { Activity, BarChart3, FlaskConical, Gauge, ListChecks, Search, ShieldCheck } from "lucide-react";
+import { Activity, BarChart3, FlaskConical, Gauge, ListChecks, Radar, Search, ShieldCheck } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useStatusIsland } from "./providers";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupConte
 
 const navigation = [
   { href: "/console", label: "Overview", icon: Gauge },
+  { href: "/control-tower", label: "Control tower", icon: Radar },
   { href: "/incidents", label: "Incidents", icon: Activity },
   { href: "/approvals", label: "Approval queue", icon: ListChecks },
   { href: "/metrics", label: "Metrics & audit", icon: BarChart3 },

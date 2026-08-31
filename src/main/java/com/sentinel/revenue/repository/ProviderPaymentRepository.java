@@ -8,4 +8,6 @@ import java.util.UUID;
 
 public interface ProviderPaymentRepository extends JpaRepository<ProviderPayment, UUID> {
     Optional<ProviderPayment> findByRazorpayPaymentId(String razorpayPaymentId);
+    Optional<ProviderPayment> findFirstByRazorpayOrderIdAndStatusIgnoreCase(
+            String razorpayOrderId, String status);
 }

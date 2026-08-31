@@ -16,6 +16,9 @@ import com.sentinel.revenue.model.RecoveryStrategy;
 import com.sentinel.revenue.model.RevenueIncident;
 import com.sentinel.revenue.model.RevenueIncidentStatus;
 import com.sentinel.revenue.model.RiskLevel;
+import com.sentinel.revenue.model.RootCauseCandidate;
+import com.sentinel.revenue.model.SystemicIncidentMember;
+import com.sentinel.revenue.model.SystemicRecoveryIncident;
 import com.sentinel.revenue.policy.PolicyEvaluation;
 import com.sentinel.revenue.policy.PolicyRuleResult;
 import com.sentinel.revenue.detection.RuleOutcome;
@@ -68,6 +71,8 @@ class RevenueRepositoryTest {
     @Autowired AuditEventRepository auditEvents;
     @Autowired ProcessedWebhookEventRepository webhooks;
     @Autowired HistoricalIncidentRepository historicalIncidents;
+    @Autowired SystemicRecoveryIncidentRepository systemicIncidents;
+    @Autowired SystemicIncidentMemberRepository systemicMembers;
 
     @Test
     void paymentEventRepositoryPersistsMinorUnitsAndIdempotencyKey() {
@@ -190,6 +195,25 @@ class RevenueRepositoryTest {
                 .hasValueSatisfying(saved -> {
                     assertThat(saved.getOriginalIncidentId()).isEqualTo(incident.getIncidentId());
                     assertThat(saved.getRecoveredAmountMinor()).isEqualTo(75_000);
+                });
+    }
+
+    @Test
+    void systemicIncidentMembersCanBeQueriedByMappedParentId() {
+        RevenueIncident child = persistIncident();
+        SystemicRecoveryIncident parent = systemicIncidents.saveAndFlush(
+                new SystemicRecoveryIncident("merchant_1", "UPI:HDFC", List.of(
+                        new RootCauseCandidate("UPI_ISSUER_DEGRADATION", 0.91,
+                                List.of("HDFC failure concentration"), List.of(), "UPI:HDFC")), NOW));
+        SystemicIncidentMember member = systemicMembers.saveAndFlush(
+                new SystemicIncidentMember(parent, child, NOW));
+
+        assertThat(systemicMembers.findAllBySystemicIncidentId(parent.getId()))
+                .singleElement()
+                .satisfies(saved -> {
+                    assertThat(saved.getId()).isEqualTo(member.getId());
+                    assertThat(saved.getSystemicIncidentId()).isEqualTo(parent.getId());
+                    assertThat(saved.getPaymentIncidentId()).isEqualTo(child.getIncidentId());
                 });
     }
 

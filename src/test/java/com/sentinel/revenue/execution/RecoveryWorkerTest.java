@@ -2,6 +2,7 @@ package com.sentinel.revenue.execution;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sentinel.revenue.model.ProviderOrder;
+import com.sentinel.revenue.model.ProviderPayment;
 import com.sentinel.revenue.model.RecoveryAction;
 import com.sentinel.revenue.model.RecoveryActionStatus;
 import com.sentinel.revenue.model.RecoveryJob;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -74,6 +76,9 @@ class RecoveryWorkerTest {
         when(incident.getStatus()).thenReturn(RevenueIncidentStatus.MONITORING);
         when(fixture.orders.findByIdempotencyKey("recovery-" + fixture.incidentId))
                 .thenReturn(Optional.of(paid));
+        when(fixture.payments.findFirstByRazorpayOrderIdAndStatusIgnoreCase("plink_paid", "CAPTURED"))
+                .thenReturn(Optional.of(new ProviderPayment(null, "pay_captured", "plink_paid",
+                        "CAPTURED", 4_299L, "upi", Instant.now(), "{}")));
         when(fixture.incidents.findById(fixture.incidentId)).thenReturn(Optional.of(incident));
         when(fixture.outcomes.findByRecoveryActionId(fixture.actionId)).thenReturn(Optional.empty());
 
@@ -83,6 +88,25 @@ class RecoveryWorkerTest {
         verify(fixture.executions, never()).execute(any());
         verify(fixture.jobs).markSucceeded(fixture.jobId);
         verify(incident).transitionTo(RevenueIncidentStatus.RECOVERED);
+    }
+
+    @Test
+    void paidOrderWithoutCapturedProviderPaymentDoesNotFabricateRecovery() {
+        Fixture fixture = new Fixture();
+        ProviderOrder paid = new ProviderOrder(fixture.incidentId, "plink_paid", 4_299,
+                "INR", "PAID", "https://rzp.io/i/existing",
+                "recovery-" + fixture.incidentId);
+        when(fixture.orders.findByIdempotencyKey("recovery-" + fixture.incidentId))
+                .thenReturn(Optional.of(paid));
+        when(fixture.payments.findFirstByRazorpayOrderIdAndStatusIgnoreCase("plink_paid", "CAPTURED"))
+                .thenReturn(Optional.empty());
+
+        fixture.worker.processJob(fixture.jobId);
+
+        verify(fixture.razorpay, never()).createPaymentLink(any(), anyLong(), anyString(), anyString());
+        verify(fixture.outcomes, never()).saveAndFlush(any());
+        verify(fixture.incidents, never()).saveAndFlush(any());
+        verify(fixture.jobs).markSucceeded(fixture.jobId);
     }
 
     private static final class Fixture {

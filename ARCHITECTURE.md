@@ -8,6 +8,9 @@ flowchart TD
     Ingest --> Stats[Statistics engine]
     Stats --> Detect[Detection rules and failure clustering]
     Detect --> Incident[(Revenue incident)]
+    Stats --> Health[Payment Health Radar]
+    Health --> Systemic[(Systemic incident evidence)]
+    Systemic --> Incident
     Incident --> Triage[Triage agent]
     Triage --> Tools[Pattern and customer-context tools]
     Tools --> Root[Root-cause agent]
@@ -22,7 +25,9 @@ flowchart TD
     Policy --> Deny
     Human -->|Approved with actor and reason| Execute[Replay-safe Razorpay Test Mode execution]
     Human -->|Rejected| Deny
-    Auto --> Execute
+    Auto --> Governor{Safety governor<br/>blast radius + kill switches}
+    Governor -->|Allowed| Execute
+    Governor -->|Denied / canary held| Deny
     Execute --> Link[Payment Link]
     Link --> Webhook[Raw-body HMAC webhook verification]
     Webhook --> Ledger[(Idempotency and outcome ledger)]
@@ -35,6 +40,18 @@ flowchart TD
     Human -. decision .-> Audit
     Execute -. action .-> Audit
     Webhook -. verified outcome .-> Audit
+    Incident --> Replay[Immutable replay snapshot]
+    Replay --> Shadow[Policy/model shadow comparison]
+    Shadow -. zero-tool evidence .-> Audit
+    Shadow -. no execution path .-> Deny
+    Health --> Tower[Merchant Control Tower]
+    Metrics --> Tower
+    Governor --> Tower
+    Shadow --> Tower
+    Audit --> Capsule[Evidence Capsule]
+    Capsule --> Tower
+    Evaluation[Existing deterministic evaluation harness] --> FailureLab[Failure Lab]
+    FailureLab -. fault / synthetic / shadow labels .-> Tower
 ```
 
 ## Runtime boundaries
@@ -44,5 +61,7 @@ flowchart TD
 - **Next.js / TypeScript:** an operational read-and-command surface; no provider secrets or raw webhook bodies enter the browser.
 - **Gemini:** structured diagnosis support behind `LlmClient` and `EmbeddingClient`; investigation has a bounded deterministic fallback.
 - **Razorpay Test Mode:** the only execution target; policy or persisted human approval must grant permission first.
+- **Replay/shadow boundary:** immutable, version-attributed evaluation with no provider, execution, webhook mutation, or communication adapter dependencies.
+- **Control Tower / Failure Lab:** sanitized operational read models and truth-labelled safety evidence; neither surface can turn simulation or shadow output into recovered revenue.
 
 See [SETUP.md](SETUP.md) for the one-command runtime and [evaluation/README.md](evaluation/README.md) for the reproducible proof contract.

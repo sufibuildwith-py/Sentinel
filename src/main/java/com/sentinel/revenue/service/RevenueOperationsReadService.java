@@ -3,6 +3,8 @@ package com.sentinel.revenue.service;
 import com.sentinel.revenue.api.*;
 import com.sentinel.revenue.audit.AuditTrailEntry;
 import com.sentinel.revenue.audit.AuditTrailService;
+import com.sentinel.revenue.execution.RecoveryTruth;
+import com.sentinel.revenue.execution.RecoveryTruthResolver;
 import com.sentinel.revenue.model.*;
 import com.sentinel.revenue.repository.*;
 import org.springframework.stereotype.Service;
@@ -18,11 +20,14 @@ public class RevenueOperationsReadService {
     private final RecoveryOutcomeRepository outcomes;
     private final IncidentFindingRepository findings;
     private final AuditTrailService audit;
+    private final RecoveryTruthResolver truthResolver;
     public RevenueOperationsReadService(RevenueIncidentRepository incidents, RecoveryPlanRepository plans,
                                         RecoveryActionRepository actions, RecoveryOutcomeRepository outcomes,
-                                        IncidentFindingRepository findings, AuditTrailService audit) {
+                                        IncidentFindingRepository findings, AuditTrailService audit,
+                                        RecoveryTruthResolver truthResolver) {
         this.incidents = incidents; this.plans = plans; this.actions = actions;
         this.outcomes = outcomes; this.findings = findings; this.audit = audit;
+        this.truthResolver = truthResolver;
     }
 
     @Transactional(readOnly = true)
@@ -37,6 +42,8 @@ public class RevenueOperationsReadService {
                 .orElseThrow(() -> new IllegalArgumentException("Revenue incident not found: " + id));
         RecoveryPlan plan = latestPlan(id).orElse(null);
         RecoveryAction action = latestAction(id).orElse(null);
+        RecoveryOutcome outcome = action == null ? null
+                : outcomes.findByRecoveryActionId(action.getId()).orElse(null);
         List<IncidentDetailView.FindingView> safeFindings = findings.findAllByIncidentIncidentId(id).stream()
                 .map(finding -> new IncidentDetailView.FindingView(finding.getSource().name(),
                         finding.getSummary(), finding.getConfidence(), finding.getEvidence(), finding.getCreatedAt()))
@@ -49,7 +56,12 @@ public class RevenueOperationsReadService {
                 action.getCurrency(), action.getExternalResourceId(), action.getProviderReferenceId(),
                 action.getExternalResourceUrl(), action.getExternalResourceStatus(), action.getExecutionAttempts(),
                 action.getApprovedAt(), action.getExecutedAt());
-        return new IncidentDetailView(summary(incident), safeFindings, planView, actionView);
+        RecoveryTruth truth = truthResolver.resolve(action, outcome);
+        IncidentDetailView.TruthView truthView = new IncidentDetailView.TruthView(
+                truth.stage(), truth.executionMode(), truth.providerAccepted(),
+                truth.awaitingReconciliation(), truth.providerConfirmed(),
+                truth.providerConfirmedAmountMinor(), truth.basis());
+        return new IncidentDetailView(summary(incident), safeFindings, planView, actionView, truthView);
     }
 
     @Transactional(readOnly = true)

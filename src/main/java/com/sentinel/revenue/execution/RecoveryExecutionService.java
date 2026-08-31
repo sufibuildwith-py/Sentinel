@@ -7,6 +7,9 @@ import com.sentinel.revenue.repository.RecoveryActionRepository;
 import com.sentinel.revenue.repository.RecoveryPlanRepository;
 import com.sentinel.revenue.repository.RevenueIncidentRepository;
 import com.sentinel.revenue.service.RevenueIncidentStateMachine;
+import com.sentinel.revenue.governor.GovernorEvaluation;
+import com.sentinel.revenue.governor.RecoverySafetyGovernor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,14 +34,24 @@ public class RecoveryExecutionService {
     private final RazorpayGateway gateway;
     private final RazorpayProperties properties;
     private final AuditLogService audit;
+    private final RecoverySafetyGovernor governor;
     private final RevenueIncidentStateMachine stateMachine = new RevenueIncidentStateMachine();
+
+    @Autowired
+    public RecoveryExecutionService(RecoveryActionRepository actions, RecoveryPlanRepository plans,
+                                    RevenueIncidentRepository incidents, PaymentEventRepository payments,
+                                    RazorpayGateway gateway, RazorpayProperties properties,
+                                    AuditLogService audit, RecoverySafetyGovernor governor) {
+        this.actions = actions; this.plans = plans; this.incidents = incidents; this.payments = payments;
+        this.gateway = gateway; this.properties = properties; this.audit = audit;
+        this.governor = governor;
+    }
 
     public RecoveryExecutionService(RecoveryActionRepository actions, RecoveryPlanRepository plans,
                                     RevenueIncidentRepository incidents, PaymentEventRepository payments,
                                     RazorpayGateway gateway, RazorpayProperties properties,
                                     AuditLogService audit) {
-        this.actions = actions; this.plans = plans; this.incidents = incidents; this.payments = payments;
-        this.gateway = gateway; this.properties = properties; this.audit = audit;
+        this(actions, plans, incidents, payments, gateway, properties, audit, null);
     }
 
     @Transactional
@@ -81,6 +94,16 @@ public class RecoveryExecutionService {
             audit.appendExternal(incident, "EXECUTOR", "EXECUTION_STOPPED", List.of("alreadyPaid=true"),
                     "Local state prevented provider call", null, "TEST");
             return response(incidentId, action, false, "Original payment is already settled");
+        }
+        if (governor != null) {
+            GovernorEvaluation evaluation = governor.evaluate(action, plan.getStrategy(), target.getAmountMinor(), now);
+            audit.appendExternal(incident, "GOVERNOR", "BLAST_RADIUS_EVALUATED",
+                    evaluation.violations().isEmpty() ? List.of("allowedValueMinor=" + evaluation.allowedValueMinor())
+                            : evaluation.violations(),
+                    evaluation.allowed() ? "Execution envelope granted" : "Execution envelope denied",
+                    null, evaluation.allowed() ? "ALLOW" : "DENY");
+            if (!evaluation.allowed()) throw new IllegalStateException(
+                    "Recovery safety governor denied execution: " + String.join(", ", evaluation.violations()));
         }
         String reference = action.getProviderReferenceId() == null
                 ? reference(action.getId()) : action.getProviderReferenceId();
@@ -171,7 +194,8 @@ public class RecoveryExecutionService {
 
     private RecoveryExecutionResponse complete(RevenueIncident incident, RecoveryAction action,
                                                PaymentLinkResource link, boolean existing) {
-        action.complete(link.id(), link.shortUrl(), link.status(), Instant.now());
+        action.complete(link.id(), link.shortUrl(), link.status(), Instant.now(),
+                ExecutionMode.RAZORPAY_TEST_MODE);
         actions.saveAndFlush(action);
         if (incident.getStatus() == RevenueIncidentStatus.EXECUTING)
             transition(incident, RevenueIncidentStatus.MONITORING, "Payment Link created; awaiting webhook phase");

@@ -89,6 +89,10 @@ public class RecoveryAction {
     @Column(name = "last_error_code", length = 64)
     private String lastErrorCode;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "execution_mode", nullable = false, length = 32)
+    private ExecutionMode executionMode = ExecutionMode.LEGACY_UNSPECIFIED;
+
     @Version
     private long version;
 
@@ -165,12 +169,18 @@ public class RecoveryAction {
     }
 
     public void complete(String resourceId, String shortUrl, String providerStatus, Instant completedAt) {
+        complete(resourceId, shortUrl, providerStatus, completedAt, ExecutionMode.LEGACY_UNSPECIFIED);
+    }
+
+    public void complete(String resourceId, String shortUrl, String providerStatus, Instant completedAt,
+                         ExecutionMode executionMode) {
         requireExecuting();
         this.externalResourceType = "payment_link";
         this.externalResourceId = resourceId;
         this.externalResourceUrl = shortUrl;
         this.externalResourceStatus = providerStatus;
         this.executedAt = completedAt;
+        this.executionMode = executionMode == null ? ExecutionMode.LEGACY_UNSPECIFIED : executionMode;
         this.status = RecoveryActionStatus.EXECUTED;
     }
 
@@ -239,5 +249,6 @@ public class RecoveryAction {
     public Instant getExecutionClaimedAt() { return executionClaimedAt; }
     public Instant getExpiresAt() { return expiresAt; }
     public String getLastErrorCode() { return lastErrorCode; }
+    public ExecutionMode getExecutionMode() { return executionMode; }
     public long getVersion() { return version; }
 }

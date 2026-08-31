@@ -5,6 +5,9 @@ import com.sentinel.revenue.detection.RuleOutcome;
 import com.sentinel.revenue.model.*;
 import com.sentinel.revenue.policy.PolicyEvaluation;
 import com.sentinel.revenue.policy.PolicyRuleResult;
+import com.sentinel.revenue.governor.ExecutionEnvelope;
+import com.sentinel.revenue.governor.GovernorEvaluation;
+import com.sentinel.revenue.governor.RecoverySafetyGovernor;
 import com.sentinel.revenue.repository.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,9 +61,14 @@ class RecoveryExecutionConcurrencyTest {
     @Autowired RecoveryActionRepository actions;
     @Autowired PaymentEventRepository payments;
     @MockBean RazorpayGateway gateway;
+    @MockBean RecoverySafetyGovernor governor;
 
     @Test void concurrentRequestsIssueOneProviderCreate() throws Exception {
         UUID incidentId = seed();
+        when(governor.evaluate(any(), any(), anyLong(), any())).thenReturn(new GovernorEvaluation(
+                UUID.randomUUID(), true, 50_000,
+                new ExecutionEnvelope(10_000_000, 100, 100_000, 30, 20, 3, 10, 0.25, 500_000),
+                List.of()));
         when(gateway.findPaymentLinkByReference(any())).thenReturn(java.util.Optional.empty());
         when(gateway.createPaymentLink(any())).thenAnswer(call -> {
             Thread.sleep(100);

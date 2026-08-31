@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sentinel.core.observability.RequestContext;
 import com.sentinel.revenue.model.ProviderOrder;
 import com.sentinel.revenue.model.ProviderPayment;
+import com.sentinel.revenue.model.ExecutionMode;
 import com.sentinel.revenue.model.RecoveryAction;
 import com.sentinel.revenue.model.RecoveryActionStatus;
 import com.sentinel.revenue.model.RecoveryJob;
@@ -80,7 +81,7 @@ public class RecoveryWorker {
         this.json = json;
     }
 
-    @Scheduled(fixedDelayString = "${sentinel.recovery.worker.fixed-delay:30s}")
+    @Scheduled(fixedDelayString = "${sentinel.recovery.worker.fixed-delay:30000}")
     public void processRecoveryJobs() {
         for (RecoveryJob job : jobs.findPendingDueJobs()) {
             processJob(job.getId());
@@ -119,7 +120,9 @@ public class RecoveryWorker {
         String key = idempotencyKey(job.getIncidentId());
         Optional<ProviderOrder> existing = providerOrders.findByIdempotencyKey(key);
         if (existing.filter(order -> PAID.contains(order.getStatus().toUpperCase(Locale.ROOT))).isPresent()) {
-            recordOutcome(job, null, existing.get().getAmountPaise(), "provider-order:" + existing.get().getId());
+            providerPayments.findFirstByRazorpayOrderIdAndStatusIgnoreCase(
+                            existing.get().getRazorpayOrderId(), "CAPTURED")
+                    .ifPresent(payment -> recordOutcome(job, existingPaymentConfirmation(payment)));
             return;
         }
 
@@ -141,7 +144,7 @@ public class RecoveryWorker {
             ProviderOrder mirror = new ProviderOrder(job.getIncidentId(), result.providerId(),
                     action.getAmountMinor(), Optional.ofNullable(action.getCurrency()).orElse("INR"),
                     Optional.ofNullable(result.providerStatus()).orElse("CREATED").toUpperCase(Locale.ROOT),
-                    result.shortUrl(), key);
+                    result.shortUrl(), key, ExecutionMode.RAZORPAY_TEST_MODE);
             try {
                 providerOrders.saveAndFlush(mirror);
             } catch (DataIntegrityViolationException duplicate) {
@@ -201,20 +204,31 @@ public class RecoveryWorker {
             order.updateProviderState("PAID", order.getProviderReference());
             providerOrders.saveAndFlush(order);
         }
-        recordOutcome(job, event, amount, event.getEventId());
+        recordOutcome(job, new ProviderConfirmation(amount, event.getEventId(),
+                "VERIFIED_WEBHOOK"));
         webhookEvents.markProcessed(event.getId(), job.getIncidentId());
     }
 
-    private void recordOutcome(RecoveryJob job, WebhookEvent event, long amount, String sourceEventId) {
+    private ProviderConfirmation existingPaymentConfirmation(ProviderPayment payment) {
+        if (!"CAPTURED".equalsIgnoreCase(payment.getStatus()) || payment.getCapturedAt() == null
+                || payment.getAmountPaise() == null || payment.getAmountPaise() < 0) {
+            throw new IllegalStateException("Persisted provider payment is not captured proof");
+        }
+        return new ProviderConfirmation(payment.getAmountPaise(), payment.getRazorpayPaymentId(),
+                "PROVIDER_PAYMENT_FETCH");
+    }
+
+    private void recordOutcome(RecoveryJob job, ProviderConfirmation confirmation) {
         RecoveryAction action = requireAction(job);
         RevenueIncident incident = incidents.findById(job.getIncidentId())
                 .orElseThrow(() -> new IllegalArgumentException("Revenue incident not found"));
         RecoveryOutcome outcome = outcomes.findByRecoveryActionId(action.getId())
-                .orElseGet(() -> new RecoveryOutcome(action, incident, RecoveryOutcomeStatus.RECOVERED,
-                        amount, Instant.now(), sourceEventId));
+                .orElseGet(() -> RecoveryOutcome.providerConfirmed(action, incident,
+                        RecoveryOutcomeStatus.RECOVERED, confirmation.amountMinor(), Instant.now(),
+                        confirmation.sourceEventId(), confirmation.source()));
         if (outcome.getId() != null) {
-            outcome.applyRecovered(Math.max(amount, outcome.getRecoveredAmountMinor()),
-                    Instant.now(), sourceEventId);
+            outcome.applyRecovered(Math.max(confirmation.amountMinor(), outcome.getRecoveredAmountMinor()),
+                    Instant.now(), confirmation.sourceEventId());
         }
         outcomes.saveAndFlush(outcome);
         if (action.getExternalResourceId() != null && action.getStatus() != RecoveryActionStatus.RECOVERED) {
@@ -272,4 +286,6 @@ public class RecoveryWorker {
         String requestId = RequestContext.getRequestId();
         return requestId == null ? "recovery-worker" : requestId;
     }
+
+    private record ProviderConfirmation(long amountMinor, String sourceEventId, String source) { }
 }

@@ -533,11 +533,22 @@ Generate the proof report:
 mvn clean verify   # requires Docker — Postgres integration tests never substitute H2
 mvn -Dtest=EvaluationHarnessIntegrationTest test   # focused report command
 ```
-Writes `target/evaluation-reports/sentinel-evaluation-report.{json,md}`, migrates an empty real PostgreSQL database through Flyway V7, persists the canonical report + SHA-256, and proves a repeat run is identical.
+Writes `target/evaluation-reports/sentinel-evaluation-report.{json,md}`, migrates an empty real PostgreSQL database through Flyway V20, persists the canonical report + SHA-256, and proves a repeat run is identical.
 
 Runtime proof endpoints: `GET /api/v1/evaluation/report` · `POST /api/v1/evaluation/run` · `GET /api/v1/evaluation/report.{json|md}` · `GET /actuator/health` · `GET /actuator/metrics`.
 
 Dashboard proof surface: `http://localhost:3000/evaluation` — executive scorecard, hard gates, confusion matrix, recovery funnel, scenario-level expected/actual evidence, failure-injection laboratory, metric definitions, honest limitations.
+
+### Governed operations extensions (Phases A–K)
+
+The post-proof hardening path is additive. It preserves the Phase 9 oracle while adding provider-truth semantics, grounded agent claims, systemic payment health, an execution safety governor, causal financial attribution, governed customer communication, shadow opportunity ranking, model lifecycle controls, immutable replay/shadow comparison, a merchant Control Tower, and a Failure Lab.
+
+- **Truth is explicit:** `RAZORPAY_TEST_MODE`, `SIMULATION`, `FAULT_INJECTION`, `SYNTHETIC_BENCHMARK`, `SHADOW_ONLY`, `PROVIDER_CONFIRMED`, and `AWAITING_RECONCILIATION` are never collapsed into one revenue claim.
+- **Replay and shadow are zero-tool:** historical inputs can be re-evaluated against proposed policy/model versions, but these components have no provider, execution, webhook-mutation, or customer-contact dependency path.
+- **Governor authority remains deterministic:** blast-radius envelopes, kill switches, provider-call ceilings, unreconciled-value limits, concurrency limits, and canary reconciliation run independently of model confidence.
+- **The Failure Lab reuses the evaluation harness:** a correct `DENY`, refusal, held canary, or communication block is recorded as a successful safety demonstration. Real Test Mode outcomes are never synthesized.
+
+Operational surfaces: `http://localhost:3000/control-tower` and `http://localhost:3000/demo`.
 
 **What this proves:** the checked-in decision code matches an independent labelled oracle for the committed scenario matrix; mandatory stop and approval gates cannot be bypassed by evaluated paths; duplicate/invalid/out-of-order inputs do not double count financial outcomes; provider/model failures are bounded; the full proof is reproducible without credentials on real PostgreSQL.
 
@@ -580,11 +591,22 @@ POST /api/v1/revenue/actions/{id}/cancel          # cancel an executable action
 POST /api/v1/revenue/actions/{id}/notify/{medium} # optional bounded notification
 GET  /api/v1/revenue/approvals                    # pending human decisions
 GET  /api/v1/revenue/metrics                      # evaluation/recovery metrics
+GET  /api/v1/revenue/financial-attribution        # financial waterfall and TTD/TGD/TTE/TTR
+GET  /api/v1/revenue/control-tower                # sanitized governed operations view
 GET  /api/v1/revenue/incidents/{id}/audit-trail   # immutable incident timeline
+GET  /api/v1/revenue/incidents/{id}/evidence-capsule # grounded decision evidence
+GET  /api/v1/revenue/payment-health               # rolling health windows and signals
+GET  /api/v1/revenue/governor/kill-switches       # execution safety posture
+GET  /api/v1/revenue/models                       # model lifecycle registry
+POST /api/v1/revenue/replay/snapshots             # immutable historical decision snapshot
+POST /api/v1/revenue/replay/snapshots/{id}        # deterministic zero-tool replay
+POST /api/v1/revenue/replay/snapshots/{id}/shadow # zero-tool challenger comparison
 POST /api/v1/webhooks/razorpay                    # signed outcome events
 
 POST /api/v1/demo/reset                           # reset synthetic demo state
 POST /api/v1/demo/inject/upi-outage               # repeatable demo incident
+GET  /api/v1/failure-lab/scenarios                # truth-labelled safety demonstrations
+POST /api/v1/failure-lab/scenarios/{id}/run       # evaluate existing proof evidence
 
 GET  /api/v1/evaluation/report                    # latest deterministic proof
 POST /api/v1/evaluation/run                       # regenerate deterministic proof

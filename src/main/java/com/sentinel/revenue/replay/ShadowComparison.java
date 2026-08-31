@@ -1,0 +1,5 @@
+package com.sentinel.revenue.replay;
+import com.sentinel.revenue.model.PolicyDecision;
+import java.math.BigDecimal;
+import java.util.*;
+public record ShadowComparison(UUID differenceId,UUID snapshotId,String productionAction,String shadowAction,PolicyDecision productionPolicy,PolicyDecision shadowPolicy,String productionGovernor,String shadowGovernor,Long productionPredictedValueMinor,Long shadowPredictedValueMinor,BigDecimal productionConfidence,BigDecimal shadowConfidence,boolean actionChanged,boolean policyChanged,boolean governorChanged,boolean priorityChanged,boolean opportunityRankingChanged,boolean approvalRequirementChanged,boolean criticalRegression,String explanation,String featureSchemaVersion,String modelVersion,String policyVersion,String strategyVersion,String governorVersion){}

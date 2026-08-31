@@ -27,7 +27,9 @@ public class RevenueMetricsService {
         List<RecoveryAction> createdLinks = actions.findAll().stream()
                 .filter(action -> action.getExternalResourceId() != null).toList();
         long attempted = createdLinks.stream().mapToLong(RecoveryAction::getAmountMinor).sum();
-        List<RecoveryOutcome> currentOutcomes = outcomes.findAll();
+        List<RecoveryOutcome> currentOutcomes = outcomes.findAll().stream()
+                .filter(RecoveryOutcome::isProviderConfirmed)
+                .toList();
         long recovered = currentOutcomes.stream().mapToLong(RecoveryOutcome::getRecoveredAmountMinor).sum();
 
         Map<UUID, RecoveryAction> actionById = new HashMap<>();

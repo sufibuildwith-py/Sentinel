@@ -8,6 +8,9 @@ import com.sentinel.revenue.policy.*;
 import com.sentinel.revenue.repository.*;
 import com.sentinel.revenue.service.RevenueIncidentStateMachine;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.sentinel.revenue.opportunity.RecoveryOpportunityDecision;
+import com.sentinel.revenue.opportunity.RecoveryOpportunityEngine;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -31,13 +34,15 @@ public class RecoveryPlanningService {
     private final PolicyEngine policyEngine;
     private final PolicyProperties properties;
     private final AuditLogService audit;
+    private final RecoveryOpportunityEngine opportunities;
     private final RevenueIncidentStateMachine stateMachine = new RevenueIncidentStateMachine();
 
+    @Autowired
     public RecoveryPlanningService(RevenueIncidentRepository incidents, RecoveryPlanRepository plans,
                                    RecoveryActionRepository actions, RecoveryOutcomeRepository outcomes,
                                    PaymentEventRepository payments, RecoveryPlannerAgent planner,
                                    PolicyEngine policyEngine, PolicyProperties properties,
-                                   AuditLogService audit) {
+                                   AuditLogService audit, RecoveryOpportunityEngine opportunities) {
         this.incidents = incidents;
         this.plans = plans;
         this.actions = actions;
@@ -47,6 +52,15 @@ public class RecoveryPlanningService {
         this.policyEngine = policyEngine;
         this.properties = properties;
         this.audit = audit;
+        this.opportunities = opportunities;
+    }
+
+    public RecoveryPlanningService(RevenueIncidentRepository incidents, RecoveryPlanRepository plans,
+                                   RecoveryActionRepository actions, RecoveryOutcomeRepository outcomes,
+                                   PaymentEventRepository payments, RecoveryPlannerAgent planner,
+                                   PolicyEngine policyEngine, PolicyProperties properties,
+                                   AuditLogService audit) {
+        this(incidents, plans, actions, outcomes, payments, planner, policyEngine, properties, audit, null);
     }
 
     @Transactional
@@ -58,6 +72,13 @@ public class RecoveryPlanningService {
         }
         transition(incident, RevenueIncidentStatus.PLANNING, "Recovery planning started");
         Instant now = Instant.now();
+        if (opportunities != null) {
+            RecoveryOpportunityDecision shadow = opportunities.evaluate(incident, null);
+            audit.append(incident, "OPPORTUNITY_ENGINE", null, "SHADOW_OPPORTUNITY_EVALUATED",
+                    shadow.candidates().stream().map(candidate -> candidate.action() + ":" + candidate.estimateKind()).toList(),
+                    null, "Shadow choice " + shadow.shadowChoice(), List.of(), shadow.mode(), null,
+                    null, "Fallback planner retains authority at maturity " + shadow.maturity());
+        }
         AgentContext context = new AgentContext(incidentId.toString(), now,
                 now.plus(2, ChronoUnit.MINUTES), Map.of("permission", "PROPOSAL_ONLY"));
         AgentResult<RecoveryPlan> agentResult = planner.execute(incident, context);

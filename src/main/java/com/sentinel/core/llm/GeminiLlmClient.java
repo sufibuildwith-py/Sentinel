@@ -31,6 +31,7 @@ public class GeminiLlmClient implements LlmClient {
     private final ObjectMapper objectMapper;
     private final Validator validator;
     private final GeminiCallGuard callGuard;
+    private final LlmRuntimeStatus runtimeStatus;
 
     @Autowired
     public GeminiLlmClient(
@@ -38,13 +39,15 @@ public class GeminiLlmClient implements LlmClient {
             @Qualifier("geminiHttpClient") HttpClient httpClient,
             ObjectMapper objectMapper,
             Validator validator,
-            GeminiCallGuard callGuard
+            GeminiCallGuard callGuard,
+            LlmRuntimeStatus runtimeStatus
     ) {
         this.properties = properties;
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
         this.validator = validator;
         this.callGuard = callGuard;
+        this.runtimeStatus = runtimeStatus;
     }
 
     public GeminiLlmClient(GeminiProperties properties, HttpClient httpClient,
@@ -54,11 +57,13 @@ public class GeminiLlmClient implements LlmClient {
         this.objectMapper = objectMapper;
         this.validator = validator;
         this.callGuard = null;
+        this.runtimeStatus = new LlmRuntimeStatus(properties);
     }
 
     @Override
     public <T> T generateStructured(Prompt prompt, Class<T> outputType) {
-        HttpRequest request = HttpRequest.newBuilder()
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
                 .uri(properties.modelEndpoint(properties.model(), "generateContent"))
                 .timeout(properties.requestTimeout())
                 .header("x-goog-api-key", properties.apiKey())
@@ -66,9 +71,15 @@ public class GeminiLlmClient implements LlmClient {
                 .POST(HttpRequest.BodyPublishers.ofString(buildRequestBody(prompt)))
                 .build();
 
-        String responseBody = send(request, "Gemini generation");
-        String generatedJson = extractGeneratedText(responseBody);
-        return parseAndValidate(generatedJson, outputType);
+            String responseBody = send(request, "Gemini generation");
+            String generatedJson = extractGeneratedText(responseBody);
+            T result = parseAndValidate(generatedJson, outputType);
+            runtimeStatus.record("SUCCESS");
+            return result;
+        } catch (RuntimeException exception) {
+            runtimeStatus.record("ERROR");
+            throw exception;
+        }
     }
 
     private String buildRequestBody(Prompt prompt) {

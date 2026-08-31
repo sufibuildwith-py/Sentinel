@@ -8,6 +8,7 @@ import com.razorpay.PaymentLink;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
 import com.sentinel.revenue.model.ProviderOrder;
+import com.sentinel.revenue.model.ExecutionMode;
 import com.sentinel.revenue.repository.ProviderOrderRepository;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
@@ -69,7 +70,8 @@ public class RazorpayAdapter {
                 : stubOrder(amountPaise, currency, idempotencyKey);
         ProviderOrder order = new ProviderOrder(incidentId, response.getString("id"), amountPaise,
                 currency, response.optString("status", "created").toUpperCase(),
-                response.optString("receipt", reference(idempotencyKey)), idempotencyKey);
+                response.optString("receipt", reference(idempotencyKey)), idempotencyKey,
+                executionMode());
         return persistIdempotently(order, idempotencyKey);
     }
 
@@ -119,7 +121,7 @@ public class RazorpayAdapter {
 
         ProviderOrder link = new ProviderOrder(incidentId, response.getString("id"), amountPaise,
                 "INR", response.optString("status", "created").toUpperCase(),
-                response.optString("short_url", null), idempotencyKey);
+                response.optString("short_url", null), idempotencyKey, executionMode());
         ProviderOrder saved = persistIdempotently(link, idempotencyKey);
         return paymentLink(saved);
     }
@@ -234,6 +236,10 @@ public class RazorpayAdapter {
     private boolean useSdk() {
         return properties.baseUrl().toString().replaceAll("/+$", "").equals(OFFICIAL_API)
                 && clients.getIfAvailable() != null;
+    }
+
+    private ExecutionMode executionMode() {
+        return properties.enabled() ? ExecutionMode.RAZORPAY_TEST_MODE : ExecutionMode.SIMULATION;
     }
 
     private String reference(String idempotencyKey) {

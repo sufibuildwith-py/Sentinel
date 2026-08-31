@@ -11,4 +11,5 @@ public interface WebhookEventRepository extends JpaRepository<WebhookEvent, UUID
     Optional<WebhookEvent> findByEventId(String eventId);
     boolean existsByEventId(String eventId);
     List<WebhookEvent> findByProcessedFalseOrderByReceivedAtAsc();
+    List<WebhookEvent> findAllByIncidentIdOrderByReceivedAtAsc(UUID incidentId);
 }

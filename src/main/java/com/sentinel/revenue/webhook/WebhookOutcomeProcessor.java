@@ -133,8 +133,9 @@ public class WebhookOutcomeProcessor {
         if (incident.getStatus() != RevenueIncidentStatus.MONITORING) return false;
         boolean changed;
         if (outcome == null) {
-            outcome = new RecoveryOutcome(action, incident, RecoveryOutcomeStatus.PARTIALLY_RECOVERED,
-                    amountPaid, Instant.now(), eventId); changed = true;
+            outcome = RecoveryOutcome.providerConfirmed(action, incident,
+                    RecoveryOutcomeStatus.PARTIALLY_RECOVERED, amountPaid, Instant.now(), eventId,
+                    "VERIFIED_WEBHOOK"); changed = true;
         } else changed = outcome.applyPartial(amountPaid, Instant.now(), eventId);
         if (!changed) return false;
         action.recordPartial(providerStatus); actions.saveAndFlush(action); outcomes.saveAndFlush(outcome);
@@ -148,8 +149,9 @@ public class WebhookOutcomeProcessor {
                               long amountPaid, String eventId, String providerStatus) {
         boolean changed;
         if (outcome == null) {
-            outcome = new RecoveryOutcome(action, incident, RecoveryOutcomeStatus.RECOVERED,
-                    amountPaid, Instant.now(), eventId); changed = true;
+            outcome = RecoveryOutcome.providerConfirmed(action, incident,
+                    RecoveryOutcomeStatus.RECOVERED, amountPaid, Instant.now(), eventId,
+                    "VERIFIED_WEBHOOK"); changed = true;
         } else changed = outcome.applyRecovered(amountPaid, Instant.now(), eventId);
         if (!changed) return false;
         action.recordRecovered(providerStatus); actions.saveAndFlush(action); outcomes.saveAndFlush(outcome);

@@ -5,6 +5,7 @@ import com.sentinel.core.agent.AgentResult;
 import com.sentinel.revenue.investigation.*;
 import com.sentinel.revenue.audit.AuditLogService;
 import com.sentinel.revenue.model.FindingSource;
+import com.sentinel.revenue.model.ClaimType;
 import com.sentinel.revenue.model.IncidentFinding;
 import com.sentinel.revenue.model.RevenueIncident;
 import com.sentinel.revenue.model.RevenueIncidentStatus;
@@ -31,6 +32,7 @@ public class RevenueInvestigationService {
     private final HistoricalMemoryService memory;
     private final RootCauseAgent rootCauseAgent;
     private final AuditLogService audit;
+    private final AgentClaimService claimService;
     private final RevenueIncidentStateMachine stateMachine = new RevenueIncidentStateMachine();
 
     @Autowired
@@ -40,7 +42,8 @@ public class RevenueInvestigationService {
                                        PaymentAnalystAgent analystAgent,
                                        HistoricalMemoryService memory,
                                        RootCauseAgent rootCauseAgent,
-                                       AuditLogService audit) {
+                                       AuditLogService audit,
+                                       AgentClaimService claimService) {
         this.incidents = incidents;
         this.findings = findings;
         this.triageAgent = triageAgent;
@@ -48,6 +51,7 @@ public class RevenueInvestigationService {
         this.memory = memory;
         this.rootCauseAgent = rootCauseAgent;
         this.audit = audit;
+        this.claimService = claimService;
     }
 
     public RevenueInvestigationService(RevenueIncidentRepository incidents,
@@ -56,7 +60,7 @@ public class RevenueInvestigationService {
                                        PaymentAnalystAgent analystAgent,
                                        HistoricalMemoryService memory,
                                        RootCauseAgent rootCauseAgent) {
-        this(incidents, findings, triageAgent, analystAgent, memory, rootCauseAgent, null);
+        this(incidents, findings, triageAgent, analystAgent, memory, rootCauseAgent, null, null);
     }
 
     @Transactional
@@ -77,15 +81,22 @@ public class RevenueInvestigationService {
         auditAgent(incident, triage);
         AgentResult<AnalystFindings> analyst = analystAgent.execute(incident, context);
         auditAgent(incident, analyst);
-        persistFinding(incident, FindingSource.PAYMENT_ANALYST, analyst.summary(),
+        IncidentFinding analystFinding = persistFinding(incident, FindingSource.PAYMENT_ANALYST, analyst.summary(),
                 analyst.confidence().value(), analyst.output().evidence());
+        persistClaim(incident, ClaimType.ANALYSIS, analyst.summary(), analyst.confidence().value(),
+                ids(analystFinding), null);
 
         List<SimilarHistoricalIncident> similar = memory.findSimilar(incident);
         RootCauseInput rootInput = new RootCauseInput(incident, triage.output(), analyst.output(), similar);
         AgentResult<RootCauseResult> diagnosis = rootCauseAgent.execute(rootInput, context);
         auditAgent(incident, diagnosis);
-        persistFinding(incident, FindingSource.ROOT_CAUSE_AGENT, diagnosis.summary(),
+        IncidentFinding rootFinding = persistFinding(incident, FindingSource.ROOT_CAUSE_AGENT, diagnosis.summary(),
                 diagnosis.confidence().value(), diagnosis.output().evidence());
+        List<UUID> diagnosisEvidence = findings.findAllByIncidentIncidentId(incidentId).stream()
+                .map(IncidentFinding::getId).filter(java.util.Objects::nonNull).toList();
+        persistClaim(incident, ClaimType.DIAGNOSIS, diagnosis.output().rootCause(),
+                diagnosis.confidence().value(), diagnosisEvidence.isEmpty() ? ids(rootFinding) : diagnosisEvidence,
+                null);
 
         transition(incident, RevenueIncidentStatus.DIAGNOSED, diagnosis.output().rootCause());
         return new InvestigationReport(incidentId, incident.getStatus(), triage.output(),
@@ -107,10 +118,25 @@ public class RevenueInvestigationService {
                 result.summary(), List.of(), null, null, null, result.status().name());
     }
 
-    private void persistFinding(RevenueIncident incident, FindingSource source, String summary,
-                                double confidence, List<String> evidence) {
-        findings.saveAndFlush(new IncidentFinding(incident, source, summary,
+    private IncidentFinding persistFinding(RevenueIncident incident, FindingSource source, String summary,
+                                           double confidence, List<String> evidence) {
+        Instant capturedAt = Instant.now();
+        return findings.saveAndFlush(new IncidentFinding(incident, source, summary,
                 BigDecimal.valueOf(confidence).setScale(4, RoundingMode.HALF_UP),
-                evidence, Instant.now()));
+                evidence, capturedAt, capturedAt.plus(24, ChronoUnit.HOURS)));
+    }
+
+    private void persistClaim(RevenueIncident incident, ClaimType type, String claim,
+                              double confidence, List<UUID> evidenceRefs, String proposedAction) {
+        if (claimService == null) return;
+        List<IncidentFinding> currentEvidence = findings.findAllByIncidentIncidentId(incident.getIncidentId());
+        claimService.validateAndPersist(incident, new ConsequentialAgentClaim(null, type, claim,
+                        BigDecimal.valueOf(confidence).setScale(4, RoundingMode.HALF_UP), evidenceRefs,
+                        List.of(), proposedAction, Instant.now()),
+                new ClaimValidationContext(currentEvidence, null, null, Instant.now()));
+    }
+
+    private List<UUID> ids(IncidentFinding finding) {
+        return finding.getId() == null ? List.of() : List.of(finding.getId());
     }
 }
