@@ -1,9 +1,12 @@
 package com.sentinel.revenue.investigation;
 
 import com.sentinel.core.agent.*;
+import com.sentinel.core.error.UpstreamServiceException;
 import com.sentinel.core.llm.LlmRuntimeStatus;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -13,6 +16,7 @@ import java.util.Map;
 
 @Component
 public class RootCauseAgent implements SentinelAgent<RootCauseInput, RootCauseResult> {
+    private static final Logger log = LoggerFactory.getLogger(RootCauseAgent.class);
     private final PromptContextBuilder prompts;
     private final StructuredLlmGateway llm;
     private final Validator validator;
@@ -34,6 +38,7 @@ public class RootCauseAgent implements SentinelAgent<RootCauseInput, RootCauseRe
     public AgentResult<RootCauseResult> execute(RootCauseInput input, AgentContext context) {
         Instant started = Instant.now();
         RootCauseResult output = null;
+        RuntimeException lastFailure = null;
         for (int attempt = 0; attempt < 2; attempt++) {
             try {
                 RootCauseResult candidate = llm.generate(prompts.build(input), RootCauseResult.class);
@@ -42,12 +47,14 @@ public class RootCauseAgent implements SentinelAgent<RootCauseInput, RootCauseRe
                             candidate.evidence(), candidate.alternativeHypotheses(), false);
                     break;
                 }
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException failure) {
+                lastFailure = failure;
                 // A second bounded attempt is allowed; deterministic diagnosis follows.
             }
         }
         boolean fallback = output == null;
         if (fallback) {
+            log.warn("Root-cause LLM fallback after two attempts: {}", safeFailureCategory(lastFailure));
             if (runtimeStatus != null) runtimeStatus.record("FALLBACK");
             output = deterministic(input);
         }
@@ -58,6 +65,19 @@ public class RootCauseAgent implements SentinelAgent<RootCauseInput, RootCauseRe
         return new AgentResult<>("RootCauseAgent", result.rootCause(),
                 new Confidence(result.confidence()), evidence, List.of(), started, Instant.now(),
                 fallback ? AgentStatus.PARTIAL : AgentStatus.SUCCEEDED, result);
+    }
+
+    private String safeFailureCategory(RuntimeException failure) {
+        Throwable current = failure;
+        while (current != null) {
+            if (current instanceof UpstreamServiceException upstream) {
+                return upstream.getUpstreamStatus() == null
+                        ? "UPSTREAM_ERROR"
+                        : "UPSTREAM_HTTP_" + upstream.getUpstreamStatus();
+            }
+            current = current.getCause();
+        }
+        return failure == null ? "NO_RESPONSE" : failure.getClass().getSimpleName();
     }
 
     private RootCauseResult deterministic(RootCauseInput input) {
