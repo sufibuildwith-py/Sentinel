@@ -7,10 +7,8 @@ import com.sentinel.revenue.api.DemoResetResponse;
 import com.sentinel.revenue.dataset.SyntheticPaymentDatasetGenerator;
 import com.sentinel.revenue.model.PaymentEvent;
 import com.sentinel.revenue.model.RevenueIncident;
-import com.sentinel.revenue.repository.IncidentFindingRepository;
 import com.sentinel.revenue.repository.PaymentEventRepository;
 import com.sentinel.revenue.repository.RevenueIncidentRepository;
-import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,19 +23,13 @@ public class DemoRevenueService {
     private final PaymentEventIngestionService ingestionService;
     private final PaymentEventRepository paymentEvents;
     private final RevenueIncidentRepository incidents;
-    private final IncidentFindingRepository findings;
-    private final EntityManager entityManager;
 
     public DemoRevenueService(PaymentEventIngestionService ingestionService,
                               PaymentEventRepository paymentEvents,
-                              RevenueIncidentRepository incidents,
-                              IncidentFindingRepository findings,
-                              EntityManager entityManager) {
+                              RevenueIncidentRepository incidents) {
         this.ingestionService = ingestionService;
         this.paymentEvents = paymentEvents;
         this.incidents = incidents;
-        this.findings = findings;
-        this.entityManager = entityManager;
     }
 
     @Transactional
@@ -53,21 +45,13 @@ public class DemoRevenueService {
                         .anyMatch(syntheticPaymentIds::contains))
                 .toList();
 
-        List<UUID> incidentIds = syntheticIncidents.stream()
-                .map(RevenueIncident::getIncidentId)
-                .toList();
-        if (!incidentIds.isEmpty()) {
-            entityManager.createNativeQuery("select set_config('sentinel.demo_reset', 'true', true)")
-                    .getSingleResult();
-            deleteIncidentDependents(incidentIds);
-            findings.deleteAllByIncidentIncidentIdIn(incidentIds);
-            findings.flush();
-            incidents.deleteAllInBatch(syntheticIncidents);
-        }
-        if (!syntheticEvents.isEmpty()) {
-            paymentEvents.deleteAllInBatch(syntheticEvents);
-        }
-        return new DemoResetResponse(syntheticIncidents.size(), syntheticEvents.size());
+        java.time.Instant resetAt = java.time.Instant.now();
+        syntheticIncidents.forEach(incident -> incident.markDemoReset(resetAt));
+        syntheticEvents.forEach(event -> event.markDemoReset(resetAt));
+        incidents.saveAllAndFlush(syntheticIncidents);
+        paymentEvents.saveAllAndFlush(syntheticEvents);
+        return new DemoResetResponse(syntheticIncidents.size(), syntheticEvents.size(), true,
+                "Synthetic operational state reset; append-only audit and evaluation history preserved");
     }
 
     @Transactional
@@ -93,27 +77,4 @@ public class DemoRevenueService {
                 incident.getAffectedPayments().size());
     }
 
-    /**
-     * Demo reset is the sole maintenance path that removes derived synthetic state.
-     * AuditEventRepository remains append-only and deliberately exposes no delete operation.
-     */
-    private void deleteIncidentDependents(List<UUID> incidentIds) {
-        deleteByIncident("RecoveryOutcome", incidentIds);
-        deleteByIncident("RecoveryAction", incidentIds);
-        deleteByIncident("RecoveryPlan", incidentIds);
-        entityManager.createQuery("delete from HistoricalIncident historical "
-                        + "where historical.originalIncident.incidentId in :incidentIds")
-                .setParameter("incidentIds", incidentIds)
-                .executeUpdate();
-        deleteByIncident("AuditEvent", incidentIds);
-        entityManager.flush();
-        entityManager.clear();
-    }
-
-    private void deleteByIncident(String entityName, List<UUID> incidentIds) {
-        entityManager.createQuery("delete from " + entityName
-                        + " entity where entity.incident.incidentId in :incidentIds")
-                .setParameter("incidentIds", incidentIds)
-                .executeUpdate();
-    }
 }

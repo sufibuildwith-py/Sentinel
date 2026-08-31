@@ -7,8 +7,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
@@ -17,10 +17,8 @@ import java.util.Map;
 import java.util.UUID;
 
 @Entity
+@SQLRestriction("reset_at IS NULL")
 @Table(name = "payment_events",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_payment_events_payment_attempt",
-                columnNames = {"payment_id", "attempt_number"}),
         indexes = {
                 @Index(name = "idx_payment_events_timestamp", columnList = "event_timestamp"),
                 @Index(name = "idx_payment_events_customer", columnList = "customer_id")
@@ -80,6 +78,9 @@ public class PaymentEvent {
     @Column(nullable = false, columnDefinition = "jsonb")
     private Map<String, Object> metadata = new LinkedHashMap<>();
 
+    @Column(name = "reset_at")
+    private Instant resetAt;
+
     protected PaymentEvent() {
     }
 
@@ -124,4 +125,9 @@ public class PaymentEvent {
     public int getPreviousFailureCount() { return previousFailureCount; }
     public String getSubscriptionId() { return subscriptionId; }
     public Map<String, Object> getMetadata() { return Map.copyOf(metadata); }
+
+    public void markDemoReset(Instant resetAt) {
+        if (resetAt == null) throw new IllegalArgumentException("Reset timestamp is required");
+        this.resetAt = resetAt;
+    }
 }

@@ -8,6 +8,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Check, CircleDollarSign, FileJson2, FileText, FlaskConical, Gauge, Info, Play, Search, ShieldCheck, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { api, money } from "@/lib/api";
+import { mutationErrorMessage } from "@/lib/api-errors";
 import type { EvaluationReport, EvaluationScenarioResult } from "@/lib/types";
 import { useStatusIsland } from "@/components/providers";
 import { ErrorState, LoadingGrid, PageHeader, SelectedGlow, StateBadge } from "@/components/dashboard-ui";
@@ -62,7 +63,7 @@ function ScenarioExplorer({ scenarios }: { scenarios: EvaluationScenarioResult[]
 export default function EvaluationPage() {
   const queryClient = useQueryClient(); const { emit } = useStatusIsland();
   const evaluation = useQuery({ queryKey: ["evaluation"], queryFn: api.evaluation, staleTime: 60_000 });
-  const run = useMutation({ mutationFn: api.runEvaluation, onSuccess: (report) => { queryClient.setQueryData(["evaluation"], report); emit({ title: "Evaluation completed", detail: `${report.datasetSize} labelled scenarios verified` }); toast.success("Evaluation report regenerated from the fixed seed"); }, onError: (error: Error) => toast.error(error.message) });
+  const run = useMutation({ mutationFn: api.runEvaluation, onSuccess: (report) => { queryClient.setQueryData(["evaluation"], report); emit({ title: "Evaluation completed", detail: `${report.datasetSize} labelled scenarios verified` }); toast.success("Evaluation report regenerated from the fixed seed"); }, onError: (error: unknown) => toast.error(mutationErrorMessage(error)) });
   if (evaluation.isLoading) return <div><PageHeader eyebrow="Proof phase" title="Sentinel Evaluation Lab" description="Loading deterministic safety and quality evidence." /><LoadingGrid /></div>;
   if (evaluation.error || !evaluation.data) return <ErrorState error={evaluation.error as Error} retry={() => void evaluation.refetch()} />;
   const report = evaluation.data;

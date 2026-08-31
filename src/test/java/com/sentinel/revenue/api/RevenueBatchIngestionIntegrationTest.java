@@ -16,12 +16,16 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -50,6 +54,7 @@ class RevenueBatchIngestionIntegrationTest {
     @Autowired PaymentEventRepository paymentEvents;
     @Autowired RevenueIncidentRepository incidents;
     @Autowired IncidentFindingRepository findings;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     @MockBean RunbookMemory runbookMemory;
     @MockBean LlmClient llmClient;
@@ -80,7 +85,10 @@ class RevenueBatchIngestionIntegrationTest {
                 .containsExactlyInAnyOrder("UPI_DEGRADATION", "PROVIDER_OUTAGE");
         assertThat(incidents.findAll())
                 .noneMatch(incident -> "NORMAL_FAILURE_MIX".equals(incident.getType()));
-        assertThat(findings.findAll()).hasSize(2).allSatisfy(finding -> {
+        var activeFindings = incidents.findAll().stream()
+                .flatMap(incident -> findings.findAllByIncidentIncidentId(incident.getIncidentId()).stream())
+                .toList();
+        assertThat(activeFindings).hasSize(2).allSatisfy(finding -> {
             assertThat(finding.getSource()).isEqualTo(FindingSource.DETECTOR);
             assertThat(finding.getSummary())
                     .contains("contributing failed events")
@@ -108,17 +116,43 @@ class RevenueBatchIngestionIntegrationTest {
     @Test
     void demoUpiInjectionUsesRealIngestionDetectionAndPersistencePipeline()
             throws Exception {
-        mockMvc.perform(post("/api/v1/demo/inject/upi-outage"))
+        MvcResult injection = mockMvc.perform(post("/api/v1/demo/inject/upi-outage"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ingestion.count").value(30))
                 .andExpect(jsonPath("$.ingestion.duplicatesSkipped").value(0))
                 .andExpect(jsonPath("$.incidentsCreated").value(1))
                 .andExpect(jsonPath("$.incidents[0].type").value("UPI_DEGRADATION"))
-                .andExpect(jsonPath("$.incidents[0].affectedPaymentCount").value(24));
+                .andExpect(jsonPath("$.incidents[0].affectedPaymentCount").value(24))
+                .andReturn();
 
         assertThat(paymentEvents.count()).isEqualTo(30);
         assertThat(incidents.count()).isEqualTo(1);
-        assertThat(findings.findAll()).singleElement().satisfies(finding ->
+        UUID injectedIncidentId = UUID.fromString(objectMapper.readTree(
+                injection.getResponse().getContentAsString()).at("/incidents/0/incidentId").asText());
+        assertThat(findings.findAllByIncidentIncidentId(injectedIncidentId)).singleElement().satisfies(finding ->
                 assertThat(finding.getSummary()).contains("all 4 detection rules passed"));
+    }
+
+    @Test
+    void demoResetHidesSyntheticStatePreservesAuditAndAllowsDeterministicReplay() throws Exception {
+        mockMvc.perform(post("/api/v1/demo/inject/upi-outage"))
+                .andExpect(status().isOk());
+        Integer auditBefore = jdbcTemplate.queryForObject("select count(*) from audit_events", Integer.class);
+
+        mockMvc.perform(post("/api/v1/demo/reset"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.incidentsReset").value(1))
+                .andExpect(jsonPath("$.eventsReset").value(30))
+                .andExpect(jsonPath("$.auditHistoryPreserved").value(true));
+
+        assertThat(incidents.count()).isZero();
+        assertThat(paymentEvents.count()).isZero();
+        assertThat(jdbcTemplate.queryForObject("select count(*) from audit_events", Integer.class))
+                .isEqualTo(auditBefore);
+
+        mockMvc.perform(post("/api/v1/demo/inject/upi-outage"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ingestion.count").value(30))
+                .andExpect(jsonPath("$.incidentsCreated").value(1));
     }
 }

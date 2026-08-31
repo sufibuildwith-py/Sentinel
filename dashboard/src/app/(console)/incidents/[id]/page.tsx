@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, Circle, ExternalLink, Play, RefreshCw } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { api, money, SentinelApiError, shortId } from "@/lib/api";
-import { pipeline, progressFor } from "@/lib/pipeline";
+import { api, money, shortId } from "@/lib/api";
+import { mutationErrorMessage } from "@/lib/api-errors";
+import { actionEligibility, shouldPollIncident } from "@/lib/action-eligibility";
+import { pipeline, pipelineStates } from "@/lib/pipeline";
 import { useStatusIsland } from "@/components/providers";
 import { ErrorState, PageHeader, StateBadge } from "@/components/dashboard-ui";
 import { Button } from "@/components/ui/button";
@@ -16,19 +19,47 @@ import { PartialState, TruthBadge } from "@/components/console-ui";
 
 export default function IncidentDetailPage() {
   const id = useParams<{ id: string }>().id; const client = useQueryClient(); const { emit } = useStatusIsland();
-  const detail = useQuery({ queryKey: ["incident", id], queryFn: () => api.incident(id), refetchInterval: (query) => ["EXECUTING", "MONITORING"].includes(query.state.data?.incident.status ?? "") ? 8_000 : false });
-  const audit = useQuery({ queryKey: ["audit", id], queryFn: () => api.audit(id), refetchInterval: detail.data?.incident.status === "MONITORING" ? 8_000 : false });
-  const capsule = useQuery({ queryKey: ["evidence-capsule", id], queryFn: () => api.capsule(id), refetchInterval: detail.data?.incident.status === "MONITORING" ? 8_000 : false });
+  const [selectedStage, setSelectedStage] = useState<number | null>(null);
+  const detail = useQuery({ queryKey: ["incident", id], queryFn: () => api.incident(id), refetchInterval: (query) => shouldPollIncident(query.state.data) ? 8_000 : false });
+  const audit = useQuery({ queryKey: ["audit", id], queryFn: () => api.audit(id), refetchInterval: shouldPollIncident(detail.data) ? 8_000 : false });
+  const capsule = useQuery({ queryKey: ["evidence-capsule", id], queryFn: () => api.capsule(id), refetchInterval: shouldPollIncident(detail.data) ? 8_000 : false });
   const certificates = useQuery({ queryKey: ["decision-certificates", id], queryFn: () => api.decisionCertificates(id) });
   const counterfactuals = useQuery({ queryKey: ["counterfactuals", id], queryFn: () => api.counterfactuals(id) });
   const timing = useQuery({ queryKey: ["timing", id], queryFn: () => api.timingRecommendation(id) });
   const costs = useQuery({ queryKey: ["recovery-costs", id], queryFn: () => api.recoveryCosts(id) });
-  const invalidate = async () => { await Promise.all([client.invalidateQueries({ queryKey: ["incident", id] }), client.invalidateQueries({ queryKey: ["audit", id] }), client.invalidateQueries({ queryKey: ["evidence-capsule", id] }), client.invalidateQueries({ queryKey: ["incidents"] }), client.invalidateQueries({ queryKey: ["metrics"] }), client.invalidateQueries({ queryKey: ["approvals"] })]); };
-  const run = useMutation({ mutationFn: async (kind: "investigate" | "plan" | "execute") => kind === "investigate" ? api.investigate(id) : kind === "plan" ? api.plan(id) : api.execute(id), onSuccess: async (_, kind) => { await invalidate(); const titles = { investigate: "Incident diagnosed", plan: "Recovery plan evaluated", execute: "Payment Link created" }; emit({ title: titles[kind], detail: `Incident ${shortId(id)} advanced` }); toast.success(titles[kind]); }, onError: (error: Error) => toast.error(error instanceof SentinelApiError && error.status === 409 ? "This recovery has already advanced. Refreshing the persisted state." : error.message) });
-  const refresh = () => { void detail.refetch(); void audit.refetch(); void capsule.refetch(); void certificates.refetch(); void counterfactuals.refetch(); void timing.refetch(); void costs.refetch(); };
+  const invalidate = async () => {
+    const keys = [["incident", id], ["audit", id], ["evidence-capsule", id], ["decision-certificates", id], ["recovery-costs", id], ["incidents"], ["metrics"], ["financial-attribution"], ["lost-revenue"], ["approvals"], ["control-tower"]];
+    await Promise.all(keys.map((queryKey) => client.invalidateQueries({ queryKey })));
+    await Promise.all(keys.map((queryKey) => client.refetchQueries({ queryKey, type: "active" })));
+  };
+  const run = useMutation({
+    mutationFn: async (kind: "investigate" | "plan" | "execute") => {
+      if (kind !== "execute") return kind === "investigate" ? api.investigate(id) : api.plan(id);
+      const [currentDetail, currentAudit] = await Promise.all([detail.refetch(), audit.refetch()]);
+      if (!currentDetail.data) throw new Error("The current incident state could not be loaded. No provider action was sent.");
+      const eligibility = actionEligibility(currentDetail.data, currentAudit.data ?? []);
+      if (!eligibility.executable) throw new Error(`${eligibility.label}. ${eligibility.reason} No provider action was sent.`);
+      return api.execute(id);
+    },
+    onSuccess: async (result, kind) => {
+      await invalidate();
+      const existing = kind === "execute" && typeof result === "object" && result !== null && "existing" in result && result.existing === true;
+      const titles = { investigate: "Incident diagnosed", plan: "Recovery plan evaluated", execute: existing ? "Persisted provider action loaded" : "Payment Link created" };
+      emit({ title: titles[kind], detail: `Incident ${shortId(id)} advanced from persisted state` });
+      toast.success(existing ? "Action already submitted. No duplicate provider action was sent." : titles[kind]);
+    },
+    onError: async (error: unknown, kind) => {
+      if (kind === "execute") await invalidate();
+      toast.error(mutationErrorMessage(error, kind === "execute" ? "execute" : "generic"));
+    },
+  });
+  const refresh = async () => { await Promise.all([detail.refetch(), audit.refetch(), capsule.refetch(), certificates.refetch(), counterfactuals.refetch(), timing.refetch(), costs.refetch()]); };
   if (detail.isLoading) return <div className="space-y-4"><Skeleton className="h-24 rounded-xl" /><Skeleton className="h-64 rounded-xl" /></div>;
   if (detail.error || !detail.data) return <ErrorState error={detail.error ?? new Error("Incident was not found")} retry={() => void detail.refetch()} />;
-  const item = detail.data; const step = progressFor(item.incident.status); const next = item.incident.status === "DETECTED" ? "investigate" : item.incident.status === "DIAGNOSED" ? "plan" : item.incident.status === "APPROVED" ? "execute" : null;
+  const item = detail.data;
+  const eligibility = actionEligibility(item, audit.data ?? []);
+  const next = item.incident.status === "DETECTED" ? "investigate" : item.incident.status === "DIAGNOSED" ? "plan" : eligibility.executable ? "execute" : null;
+  const stages = pipelineStates(item, audit.data ?? []);
   const ruleTrace = [...new Set((audit.data ?? []).flatMap((entry) => entry.ruleTrace ?? []))];
   const diagnosis = item.findings.find((finding) => finding.source === "ROOT_CAUSE_AGENT");
   const policyEvent = (audit.data ?? []).find((entry) => entry.stage === "POLICY_DECISION" || entry.stage === "POLICY");
@@ -37,9 +68,10 @@ export default function IncidentDetailPage() {
   const policyVerdict = item.action?.policyDecision === "AUTO" ? "APPROVED" : item.action?.policyDecision === "HUMAN" ? "HUMAN_REQUIRED" : item.action?.policyDecision === "DENY" ? "DENIED" : null;
   const verdictTone = policyVerdict === "APPROVED" ? "text-[#22c55e]" : policyVerdict === "DENIED" ? "text-[#ef4444]" : policyVerdict === "HUMAN_REQUIRED" ? "text-[#f59e0b]" : "text-[#444444]";
   const actionExecuted = item.action && ["EXECUTED", "MONITORING", "RECOVERED"].includes(item.action.status);
-  return <div><Link href="/incidents" className="mb-4 inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"><ArrowLeft className="size-3" /> Back to incidents</Link><PageHeader eyebrow={`Incident ${shortId(id)}`} title={item.incident.type.replaceAll("_", " ")} description={`${item.incident.severity} priority · ${item.incident.affectedPaymentCount} affected payments · detected ${new Date(item.incident.detectedAt).toLocaleString()}`} onRefresh={refresh} refreshing={detail.isFetching || audit.isFetching} updated={detail.dataUpdatedAt ? new Date(detail.dataUpdatedAt) : undefined} />
-    <motion.div layoutId={`incident-${id}`} className="glass-panel rounded-2xl p-4 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-[10px] tracking-[0.2em] text-[#444444] uppercase">{shortId(id)}</span><StateBadge value={item.incident.status} /></div><div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1"><p className={`font-mono text-2xl font-bold ${recovered ? "text-[#22c55e]" : "text-[#ef4444]"}`}>{money(item.incident.amountAtRiskMinor)}</p><p className="text-xs text-muted-foreground">at risk · {item.action ? "Razorpay" : "Gateway not specified"} · {new Date(item.incident.detectedAt).toLocaleString()}</p></div><span className="mt-3 inline-flex test-label">Test mode / Synthetic evaluation</span></div>{next && <Button onClick={() => run.mutate(next)} disabled={run.isPending}><Play />{run.isPending ? "Working…" : next === "investigate" ? "Run investigation" : next === "plan" ? "Build recovery plan" : "Create Payment Link"}</Button>}</div>
-      <ol className="mt-8 grid grid-cols-3 gap-y-5 sm:grid-cols-6 xl:grid-cols-12" aria-label="Incident pipeline">{pipeline.map((label, index) => <li key={label} className="relative flex flex-col items-center text-center"><div className="absolute left-0 right-0 top-3 hidden h-px bg-slate-200 sm:block" /><motion.span initial={false} animate={{ scale: index === step ? 1.08 : 1 }} className={`relative z-10 grid size-7 place-items-center rounded-full border ${index <= step ? "border-primary/50 bg-primary text-white" : "border-slate-200 bg-card text-muted-foreground"}`}>{index < step ? <Check className="size-3.5" /> : <Circle className="size-2.5" />}</motion.span><span className={`mt-2 text-[10px] font-medium ${index <= step ? "text-foreground" : "text-muted-foreground"}`}>{label}</span></li>)}</ol>
+  return <div><Link href="/incidents" className="mb-4 inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"><ArrowLeft className="size-3" /> Back to incidents</Link><PageHeader eyebrow={`Incident ${shortId(id)}`} title={item.incident.type.replaceAll("_", " ")} description={`${item.incident.severity} priority · ${item.incident.affectedPaymentCount} affected payments · detected ${new Date(item.incident.detectedAt).toLocaleString()}`} onRefresh={() => void refresh()} refreshing={detail.isFetching || audit.isFetching} updated={detail.dataUpdatedAt ? new Date(detail.dataUpdatedAt) : undefined} />
+    <motion.div layoutId={`incident-${id}`} className="glass-panel rounded-2xl p-4 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-[10px] tracking-[0.2em] text-[#444444] uppercase">{shortId(id)}</span><StateBadge value={item.incident.status} /></div><div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1"><p className={`font-mono text-2xl font-bold ${recovered ? "text-[#22c55e]" : "text-[#ef4444]"}`}>{money(item.incident.amountAtRiskMinor)}</p><p className="text-xs text-muted-foreground">at risk · {item.action ? "Razorpay" : "Gateway not specified"} · {new Date(item.incident.detectedAt).toLocaleString()}</p></div><span className="mt-3 inline-flex test-label">Test mode / Synthetic evaluation</span></div><div className="max-w-sm text-right">{next ? <Button onClick={() => run.mutate(next)} disabled={run.isPending}><Play />{run.isPending ? "Checking persisted state…" : next === "investigate" ? "Run investigation" : next === "plan" ? "Build recovery plan" : eligibility.label}</Button> : <><StateBadge value={eligibility.label} /><p className="mt-2 text-xs leading-5 text-muted-foreground">{eligibility.reason}</p></>}</div></div>
+      <ol className="mt-8 grid grid-cols-3 gap-y-5 sm:grid-cols-6 xl:grid-cols-12" aria-label="Incident pipeline">{pipeline.map((label, index) => { const state = stages[index]; const active = state.state === "COMPLETE" || state.state === "CURRENT"; return <li key={label} className="relative flex flex-col items-center text-center"><div className="absolute left-0 right-0 top-3 hidden h-px bg-slate-200 sm:block" /><button type="button" aria-label={`${label}: ${state.state.replaceAll("_", " ")}`} aria-pressed={selectedStage === index} onClick={() => setSelectedStage(index)} className="relative z-10 flex flex-col items-center"><motion.span initial={false} animate={{ scale: state.state === "CURRENT" ? 1.08 : 1 }} className={`grid size-7 place-items-center rounded-full border ${state.state === "BLOCKED" || state.state === "FAILED" ? "border-red-300 bg-red-50 text-red-600" : active ? "border-primary/50 bg-primary text-white" : "border-slate-200 bg-card text-muted-foreground"}`}>{state.state === "COMPLETE" ? <Check className="size-3.5" /> : <Circle className="size-2.5" />}</motion.span><span className={`mt-2 text-[10px] font-medium ${active ? "text-foreground" : "text-muted-foreground"}`}>{label}</span><span className="mt-1 font-mono text-[7px] text-slate-400">{state.state.replaceAll("_", " ")}</span></button></li>; })}</ol>
+      {selectedStage != null && <div className="mt-5 border-t border-slate-200 pt-4" aria-live="polite"><p className="font-mono text-[9px] tracking-[0.2em] text-primary uppercase">{stages[selectedStage].label} · {stages[selectedStage].state.replaceAll("_", " ")}</p><p className="mt-2 text-xs leading-5 text-muted-foreground">{stages[selectedStage].evidence}</p></div>}
     </motion.div>
 
     <section className="mt-8"><SectionLabel>Evidence</SectionLabel>{item.findings.length ? <div className="grid gap-3 lg:grid-cols-2">{item.findings.map((finding, index) => <div key={`${finding.source}-${index}`} className="glass-panel rounded-xl p-5"><div className="flex items-center justify-between gap-3"><span className="font-mono text-[10px] tracking-[0.16em] text-[#888888] uppercase">{finding.source.replaceAll("_", " ")}</span>{finding.confidence != null && <span className="font-mono text-[10px] text-primary">{(finding.confidence * 100).toFixed(0)}%</span>}</div><p className="mt-3 text-sm font-medium leading-6">{finding.summary}</p><ul className="mt-4 space-y-2">{finding.evidence.map((line) => <li key={line} className="flex gap-2 text-xs leading-5 text-muted-foreground"><Check className="mt-1 size-3 shrink-0 text-primary" />{line}</li>)}</ul></div>)}</div> : <PendingText>Awaiting evidence</PendingText>}</section>
@@ -61,7 +93,7 @@ export default function IncidentDetailPage() {
     <section><SectionLabel>Outcome and cost</SectionLabel>{outcomeEvent || recovered ? <div className="glass-panel rounded-xl p-5"><TruthBadge label="PROVIDER CONFIRMED" /><p className="mt-4 font-mono text-xs text-slate-500">{item.action?.providerStatus === "paid" ? "payment_link.paid" : "verified provider webhook"}</p><p className="mt-2 font-mono text-xs text-slate-500">signature verified <span className="text-[#22c55e]">✓</span></p><p className="mt-5 font-mono text-xl font-bold text-[#22c55e]">{money(item.incident.recoveredAmountMinor)} RECOVERED</p><p className="mt-3 text-xs text-slate-500">Persisted recovery costs: {money((costs.data ?? []).reduce((sum, cost) => sum + cost.amountMinor, 0))}</p></div> : <div className="glass-panel rounded-xl p-5"><TruthBadge label="AWAITING RECONCILIATION" /><PendingText>Provider acceptance is not recovered revenue</PendingText></div>}</section>
     <SectionDivider />
     <section><SectionLabel>Audit trail</SectionLabel><AuditTimeline entries={audit.data ?? []} loading={audit.isLoading} /></section>
-    {item.incident.status === "MONITORING" && <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><RefreshCw className="size-3" />Polling every 8 seconds while awaiting a signed outcome. This is not a streaming feed.</div>}
+    {shouldPollIncident(item) && <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><RefreshCw className="size-3" />Polling every 8 seconds while persisted execution or reconciliation state can change. Polling stops at a terminal state.</div>}
   </div>;
 }
 

@@ -24,12 +24,14 @@ class DemoControllerTest {
 
     @Test
     void resetDelegatesToDemoService() throws Exception {
-        when(demoRevenueService.resetSyntheticState()).thenReturn(new DemoResetResponse(2, 285));
+        when(demoRevenueService.resetSyntheticState()).thenReturn(new DemoResetResponse(
+                2, 285, true, "Synthetic operational state reset; append-only audit and evaluation history preserved"));
 
         mockMvc.perform(post("/api/v1/demo/reset"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.incidentsDeleted").value(2))
-                .andExpect(jsonPath("$.eventsDeleted").value(285));
+                .andExpect(jsonPath("$.incidentsReset").value(2))
+                .andExpect(jsonPath("$.eventsReset").value(285))
+                .andExpect(jsonPath("$.auditHistoryPreserved").value(true));
 
         verify(demoRevenueService).resetSyntheticState();
     }

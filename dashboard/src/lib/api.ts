@@ -6,14 +6,15 @@ const API_URL = process.env.NEXT_PUBLIC_SENTINEL_API_URL ?? "http://localhost:80
 const USE_FIXTURES = process.env.NEXT_PUBLIC_USE_FIXTURES === "true";
 
 export class SentinelApiError extends Error {
-  constructor(message: string, readonly status: number, readonly requestId?: string) { super(message); this.name = "SentinelApiError"; }
+  constructor(message: string, readonly status: number, readonly requestId?: string, readonly code?: string) { super(message); this.name = "SentinelApiError"; }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, { ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new SentinelApiError((body as { message?: string }).message ?? `Sentinel API returned ${response.status}`, response.status, response.headers.get("X-Request-Id") ?? undefined);
+    const error = body as { message?: string; code?: string };
+    throw new SentinelApiError(error.message ?? `Sentinel API returned ${response.status}`, response.status, response.headers.get("X-Request-Id") ?? undefined, error.code);
   }
   return response.status === 204 ? (undefined as T) : response.json();
 }
@@ -105,7 +106,9 @@ export const api = {
   plan: (id: string) => request<PlanningResult>(`/api/v1/revenue/incidents/${id}/plan`, { method: "POST" }),
   execute: (incidentId: string) => request<ExecutionResult>(`/api/v1/revenue/incidents/${incidentId}/execute`, { method: "POST" }),
   decide: (actionId: string, decision: "approve" | "reject", actor: string, reason: string) => request(`/api/v1/revenue/actions/${actionId}/${decision}`, { method: "POST", body: JSON.stringify({ actor, reason }) }),
-  reset: () => USE_FIXTURES ? delay({ reset: true }) : request("/api/v1/demo/reset", { method: "POST" }),
+  reset: () => USE_FIXTURES
+    ? delay({ incidentsReset: fixtureIncidents.length, eventsReset: 0, auditHistoryPreserved: true, message: "Synthetic fixture state reset; audit history preserved" })
+    : request<{ incidentsReset: number; eventsReset: number; auditHistoryPreserved: boolean; message: string }>("/api/v1/demo/reset", { method: "POST" }),
   inject: () => USE_FIXTURES ? delay({ incidentIds: [fixtureIncidents[0].incidentId] }) : request<{ incidentIds?: string[] }>("/api/v1/demo/inject/upi-outage", { method: "POST" }),
   evaluation: () => USE_FIXTURES ? delay(fixtureEvaluation) : request<EvaluationReport>("/api/v1/evaluation/report"),
   runEvaluation: () => USE_FIXTURES ? delay(fixtureEvaluation) : request<EvaluationReport>("/api/v1/evaluation/run", { method: "POST" }),

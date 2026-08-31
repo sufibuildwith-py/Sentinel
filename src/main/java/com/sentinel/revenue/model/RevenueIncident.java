@@ -9,6 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
+@SQLRestriction("reset_at IS NULL")
 @Table(name = "revenue_incidents")
 public class RevenueIncident {
 
@@ -60,6 +62,9 @@ public class RevenueIncident {
     @Column(name = "policy_decision", length = 16)
     private PolicyDecision policyDecision;
 
+    @Column(name = "reset_at")
+    private Instant resetAt;
+
     protected RevenueIncident() {
     }
 
@@ -94,5 +99,10 @@ public class RevenueIncident {
 
     public void transitionTo(RevenueIncidentStatus newStatus) {
         this.status = newStatus;
+    }
+
+    public void markDemoReset(Instant resetAt) {
+        if (resetAt == null) throw new IllegalArgumentException("Reset timestamp is required");
+        this.resetAt = resetAt;
     }
 }

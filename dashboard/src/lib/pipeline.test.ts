@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { nextActionFor, progressFor } from "./pipeline";
+import { nextActionFor, pipelineStates, progressFor } from "./pipeline";
+import type { IncidentDetail } from "./types";
 import { money, shortId } from "./api";
 
 describe("incident command-center state", () => {
@@ -17,6 +18,20 @@ describe("incident command-center state", () => {
     expect(nextActionFor("APPROVED")).toBe("execute");
     expect(nextActionFor("HUMAN_REVIEW")).toBeNull();
     expect(nextActionFor("MONITORING")).toBeNull();
+  });
+});
+
+describe("audit-backed pipeline", () => {
+  it("does not infer completed evidence stages from a later incident status", () => {
+    const detail: IncidentDetail = {
+      incident: { incidentId: "1", type: "TEST", status: "APPROVED", severity: "HIGH", amountAtRiskMinor: 100, detectedAt: "2026-08-31T00:00:00Z", affectedPaymentCount: 1, affectedCustomerCount: 1, recoveredAmountMinor: 0 },
+      findings: [],
+      action: { actionId: "a", status: "AUTO_APPROVED", policyDecision: "AUTO", amountMinor: 100, currency: "INR", executionAttempts: 0 },
+    };
+    const stages = pipelineStates(detail, []);
+    expect(stages.find((stage) => stage.label === "Evidence")?.state).toBe("PENDING");
+    expect(stages.find((stage) => stage.label === "Human")?.state).toBe("NOT_APPLICABLE");
+    expect(stages.find((stage) => stage.label === "Execute")?.state).toBe("PENDING");
   });
 });
 
