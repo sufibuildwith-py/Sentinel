@@ -50,7 +50,7 @@ class RecoverySafetyGovernorTest {
         RecoverySafetyProperties properties = new RecoverySafetyProperties(1_000_000, 10,
                 100_000, 10, 10, 3, 5, 0.25, 500_000, 2, 2);
         return new Fixture(new RecoverySafetyGovernor(properties, killSwitches, actions,
-                outcomes, jobs, decisions), action);
+                outcomes, jobs, decisions, new DynamicRecoveryGovernor()), action);
     }
     private record Fixture(RecoverySafetyGovernor governor, RecoveryAction action) { }
 }

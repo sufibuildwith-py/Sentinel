@@ -1,6 +1,6 @@
 import { fixtureApprovals, fixtureAudit, fixtureDetail, fixtureIncidents, fixtureMetrics } from "./fixtures";
 import { fixtureEvaluation } from "./evaluation-fixture";
-import type { Approval, AuditEntry, ControlTower, EvaluationReport, EvidenceCapsule, ExecutionResult, FailureLabResult, FailureLabScenario, FinancialAttribution, IncidentDetail, IncidentSummary, Metrics, PlanningResult } from "./types";
+import type { Approval, AuditEntry, ControlTower, DecisionCertificate, EvaluationReport, EvidenceCapsule, ExecutionResult, FailureLabResult, FailureLabScenario, FinancialAttribution, HistoricalValidationReport, IncidentDetail, IncidentSummary, LostRevenueExplorer, Metrics, PlanningResult, RecoveryOlympicsReport } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_SENTINEL_API_URL ?? "http://localhost:8080";
 const USE_FIXTURES = process.env.NEXT_PUBLIC_USE_FIXTURES === "true";
@@ -96,6 +96,7 @@ export const api = {
         tte: { averageMillis: null, samples: 0, definition: "incident detected → provider execution accepted" },
         ttr: { averageMillis: null, samples: 0, definition: "incident detected → provider-confirmed reconciliation" } } });
   },
+  lostRevenue: (): Promise<LostRevenueExplorer> => USE_FIXTURES ? delay({ label: "Lost Revenue Explorer — fixture evidence", revenueAtRiskMinor: fixtureMetrics.revenueAtRiskMinor, providerConfirmedRecoveryMinor: fixtureMetrics.recoveredRevenueMinor, unrecoveredMinor: Math.max(0, fixtureMetrics.revenueAtRiskMinor - fixtureMetrics.recoveredRevenueMinor), reasons: [{ category: "UNRESOLVED_OR_NO_ACTION", amountMinor: Math.max(0, fixtureMetrics.revenueAtRiskMinor - fixtureMetrics.recoveredRevenueMinor), incidentCount: fixtureIncidents.filter((item) => item.status !== "RECOVERED").length, evidenceClass: "SYNTHETIC_FIXTURE_STATE", explanation: "Fixture incidents remain unresolved; no provider-confirmed claim is inferred." }], evidenceQuality: "SYNTHETIC_FIXTURE_STATE", limitations: ["Fixture values are synthetic and do not estimate causal uplift."] }) : request<LostRevenueExplorer>("/api/v1/revenue/lost-revenue"),
   investigate: (id: string) => request(`/api/v1/revenue/incidents/${id}/investigate`, { method: "POST" }),
   plan: (id: string) => request<PlanningResult>(`/api/v1/revenue/incidents/${id}/plan`, { method: "POST" }),
   execute: (incidentId: string) => request<ExecutionResult>(`/api/v1/revenue/incidents/${incidentId}/execute`, { method: "POST" }),
@@ -104,6 +105,9 @@ export const api = {
   inject: () => USE_FIXTURES ? delay({ incidentIds: [fixtureIncidents[0].incidentId] }) : request<{ incidentIds?: string[] }>("/api/v1/demo/inject/upi-outage", { method: "POST" }),
   evaluation: () => USE_FIXTURES ? delay(fixtureEvaluation) : request<EvaluationReport>("/api/v1/evaluation/report"),
   runEvaluation: () => USE_FIXTURES ? delay(fixtureEvaluation) : request<EvaluationReport>("/api/v1/evaluation/run", { method: "POST" }),
+  recoveryOlympics: () => USE_FIXTURES ? delay<RecoveryOlympicsReport>({ title: "Recovery Olympics", truthLabel: "SYNTHETIC / CONTROLLED BENCHMARK", datasetVersion: "requires-live-evaluation-api", seed: 20260901, datasetSize: 0, frozenSplit: { DEVELOPMENT: 0, HELD_OUT: 0, ADVERSARIAL: 0 }, arms: [], integrityRules: [], simulatorAssumptions: [], limitations: ["Connect the evaluation API to generate benchmark results; no numbers are fabricated in fixture mode."] }) : request<RecoveryOlympicsReport>("/api/v1/evaluation/recovery-olympics"),
+  historicalValidation: () => USE_FIXTURES ? delay<HistoricalValidationReport>({ title: "Razorpay Historical Validation", truthLabel: "PUBLIC-SOURCE HISTORICAL VALIDATION", corpusVersion: "requires-live-evaluation-api", manifestSha256: "UNAVAILABLE_IN_FIXTURE_MODE", acceptedPublicSourceCases: 0, derivedReplayCount: 0, oldestSourceDate: "UNKNOWN", newestSourceDate: "UNKNOWN", sourceComposition: {}, passed: 0, partial: 0, failed: 0, safeRefusals: 0, unsafeExecutions: 0, duplicateFinancialEffects: 0, unverifiedRecoveryClaims: 0, decisionTraceCompleteness: 0, replayDeterminismRate: 0, cases: [], limitations: ["Connect the live evaluation API to load the frozen public-source corpus; fixture mode does not invent historical cases."] }) : request<HistoricalValidationReport>("/api/v1/evaluation/historical"),
+  decisionCertificates: (incidentId: string) => USE_FIXTURES ? delay<DecisionCertificate[]>([]) : request<DecisionCertificate[]>(`/api/v1/revenue/incidents/${incidentId}/decision-certificates`),
   evaluationDownloadUrl: (format: "json" | "md") => `${API_URL}/api/v1/evaluation/report.${format}`,
 };
 

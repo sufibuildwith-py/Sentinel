@@ -16,6 +16,7 @@ class FinancialAttributionServiceTest {
         IncidentFindingRepository findings = mock(IncidentFindingRepository.class);
         RecoveryActionRepository actions = mock(RecoveryActionRepository.class);
         RecoveryOutcomeRepository outcomes = mock(RecoveryOutcomeRepository.class);
+        RecoveryCostEntryRepository costs = mock(RecoveryCostEntryRepository.class);
         RecoveryAction first = action("payment-1");
         RecoveryAction second = action("payment-1");
         RecoveryOutcome captured = outcome(first.getId(), "evt-payment-captured", 10_000);
@@ -24,9 +25,10 @@ class FinancialAttributionServiceTest {
         when(actions.findAll()).thenReturn(List.of(first, second));
         when(outcomes.findAll()).thenReturn(List.of(captured, orderPaid));
         when(outcomes.findByRecoveryActionId(any())).thenReturn(Optional.empty());
+        when(costs.findAll()).thenReturn(List.of());
 
         FinancialAttribution result = new FinancialAttributionService(incidents, payments,
-                findings, actions, outcomes).attribution();
+                findings, actions, outcomes, costs).attribution();
 
         assertThat(result.executedValueMinor()).isEqualTo(20_000);
         assertThat(result.providerConfirmedRecoveryMinor()).isEqualTo(10_000);

@@ -13,6 +13,8 @@ public interface PaymentEventRepository extends JpaRepository<PaymentEvent, UUID
 
     List<PaymentEvent> findAllByPaymentIdIn(Collection<String> paymentIds);
 
+    List<PaymentEvent> findAllByCustomerIdOrderByTimestampAsc(String customerId);
+
     List<PaymentEvent> findAllByTimestampGreaterThanEqualAndTimestampLessThanOrderByTimestampAsc(
             Instant startInclusive, Instant endExclusive);
 }

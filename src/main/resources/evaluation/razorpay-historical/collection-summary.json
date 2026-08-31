@@ -1,0 +1,9 @@
+{
+  "corpusVersion": "1.0.0",
+  "discoveredCandidates": 800,
+  "accepted": 500,
+  "rejected": 300,
+  "collectionQuery": "org:razorpay is:issue payment",
+  "sourceClass": "OFFICIAL_RAZORPAY_GITHUB_REPORT",
+  "generatedAt": "2026-08-31T12:16:39.9484758+00:00"
+}

@@ -29,6 +29,7 @@ public class RecoveryOpportunityLog {
     }
     public UUID getId() { return id; } public UUID getIncidentId() { return incidentId; }
     public CausalMaturity getMaturity() { return maturity; } public String getMode() { return mode; }
+    public String getFeatureSchemaVersion() { return featureSchemaVersion; }
     public List<ActionOpportunity> getCandidates() { return List.copyOf(candidates); }
     public OpportunityAction getShadowChoice() { return shadowChoice; }
     public String getFallbackStrategy() { return fallbackStrategy; } public Instant getCreatedAt() { return createdAt; }

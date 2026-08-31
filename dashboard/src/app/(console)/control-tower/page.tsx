@@ -10,7 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ControlTowerPage() {
   const tower = useQuery({ queryKey: ["control-tower"], queryFn: api.controlTower });
-  const refresh = () => void tower.refetch();
+  const lostRevenue = useQuery({ queryKey: ["lost-revenue"], queryFn: api.lostRevenue });
+  const refresh = () => { void tower.refetch(); void lostRevenue.refetch(); };
   if (tower.error) return <ErrorState error={tower.error} retry={refresh} />;
   if (!tower.data) return <><PageHeader eyebrow="Control tower" title="Governed recovery posture" description="Loading the operational truth model." /><Skeleton className="h-[560px] rounded-2xl" /></>;
   const data = tower.data;
@@ -42,6 +43,8 @@ export default function ControlTowerPage() {
         <div className="space-y-3">{data.opportunities.slice(0, 5).map((opportunity) => <div key={opportunity.decisionId} className="border-b border-white/[0.05] pb-3 last:border-0"><div className="flex items-center justify-between gap-3"><Link href={`/incidents/${opportunity.incidentId}`} className="font-mono text-xs hover:text-primary">{shortId(opportunity.incidentId)}</Link><TruthLabel label={opportunity.mode.replaceAll("_", " ")} /></div><p className="mt-2 text-sm font-medium">{opportunity.selectedAction.replaceAll("_", " ")}</p><div className="mt-2 flex flex-wrap gap-2"><StateBadge value={opportunity.policyState} /><StateBadge value={opportunity.governorState} />{opportunity.netIncrementalValueMinor != null && <span className="text-xs text-muted-foreground">Estimated {money(opportunity.netIncrementalValueMinor)}</span>}</div></div>)}{data.opportunities.length === 0 && <Empty label="No opportunity evaluations recorded." />}</div>
       </Panel>
     </section>
+
+    <section className="mt-4 glass-panel rounded-2xl p-5 sm:p-6"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div><p className="eyebrow">Lost Revenue Explorer</p><h2 className="mt-2 text-lg font-semibold">Why Sentinel deliberately did not recover this money</h2><p className="mt-2 text-xs text-muted-foreground">Observed state categories only. Unknown natural recovery and causal lift remain explicitly unavailable.</p></div>{lostRevenue.data && <div className="shrink-0"><Kpi label="Unrecovered" value={money(lostRevenue.data.unrecoveredMinor)} tone="text-[#ef4444]" /></div>}</div>{lostRevenue.isLoading ? <Skeleton className="mt-5 h-28 rounded-xl" /> : lostRevenue.data ? <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{lostRevenue.data.reasons.map((reason) => <div key={reason.category} className="border border-white/[0.06] p-4"><div className="flex items-start justify-between gap-2"><p className="font-mono text-[10px] font-semibold uppercase tracking-wider">{reason.category.replaceAll("_", " ")}</p><span className="font-mono text-[9px] text-[#444444]">{reason.incidentCount}</span></div><p className="mt-3 font-mono text-lg font-bold">{money(reason.amountMinor)}</p><p className="mt-2 text-xs leading-5 text-muted-foreground">{reason.explanation}</p><TruthLabel label={reason.evidenceClass.replaceAll("_", " ")} /></div>)}</div> : <p className="mt-5 text-xs text-muted-foreground">Lost-revenue evidence is unavailable; no category or amount has been inferred.</p>}</section>
 
     <section className="mt-4 grid gap-4 xl:grid-cols-3">
       <Panel icon={Activity} eyebrow="Systemic incidents" title="Root-cause evidence">

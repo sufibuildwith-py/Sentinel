@@ -22,6 +22,7 @@ export interface AuditEntry { eventId: string; timestamp: string; actor: string;
 export interface Approval { actionId: string; incidentId: string; incidentType: string; amountMinor: number; confidence: number; reason: string; failedPolicyRules: string[]; }
 export interface Metrics { revenueAtRiskMinor: number; attemptedRecoveryMinor: number; recoveredRevenueMinor: number; recoveryRate: number; activeIncidents: number; strategyPerformance: { strategy: string; recoveredMinor: number; attemptedMinor: number; rate: number; }[]; }
 export interface FinancialAttribution { label: string; failedValueMinor: number; policyOrProviderIneligibleMinor: number; addressableValueMinor: number; expectedNaturalRecoveryMinor: number; naturalRecoveryEstimationStatus: string; expectedIncrementalOpportunityMinor: number; executedValueMinor: number; providerConfirmedRecoveryMinor: number; unreconciledExecutedValueMinor: number; attributedIncrementalRecoveryMinor: number; recoveryCostMinor: number; recoveryCostStatus: string; netIncrementalValueMinor: number; timings: { ttd: TimingMetric; tgd: TimingMetric; tte: TimingMetric; ttr: TimingMetric; }; }
+export interface LostRevenueExplorer { label: string; revenueAtRiskMinor: number; providerConfirmedRecoveryMinor: number; unrecoveredMinor: number; reasons: { category: string; amountMinor: number; incidentCount: number; evidenceClass: string; explanation: string; }[]; evidenceQuality: string; limitations: string[]; }
 export interface TimingMetric { averageMillis?: number | null; samples: number; definition: string; }
 export interface ControlTower {
   scopeLabel: string; generatedAt: string;
@@ -61,4 +62,23 @@ export interface EvaluationReport {
   failureInjectionMatrix: { failure: string; scenarioCount: number; observedBehavior: string; bounded: boolean; evidence: string; }[];
   metricDefinitions: { metric: string; formula: string; numerator: number; denominator: number; evidence: string; }[];
   limitations: string[];
+}
+
+export interface RecoveryOlympicsReport {
+  title: string; truthLabel: string; datasetVersion: string; seed: number; datasetSize: number;
+  frozenSplit: Record<"DEVELOPMENT" | "HELD_OUT" | "ADVERSARIAL", number>;
+  arms: { arm: string; label: string; methodologyLabel: string; sampleCount: number; interventions: number; refusals: number; noActions: number; grossRecoveryMinor: number; naturalRecoveryMinor: number; incrementalRecoveryMinor: number; incrementalRecoveryRate: { value: number; lower95: number; upper95: number; numerator: number; denominator: number; method: string; }; recoveryCostMinor: number; netIncrementalValueMinor: number; meanTimeToRecoveryMinutes: number; customerContactRate: number; humanEscalationRate: number; falseInterventionRate: number; unnecessaryInterventionRate: number; duplicateFinancialEffects: number; unsafeExecutions: number; policyViolations: number; auditCompleteness: number; decisionLatencyMillis: { p50: number; p95: number; p99: number; measurementMode: string; }; }[];
+  integrityRules: string[]; simulatorAssumptions: string[]; limitations: string[];
+}
+
+export interface HistoricalValidationCaseResult {
+  caseId: string; sourceClass: string; sourceDate: string; sourceUrl: string; productSurface: string; normalizedFailureClass: string; expectedInvariants: string[]; observedInvariants: string[]; result: "PASS" | "PARTIAL" | "FAIL"; safeRefusal: boolean; unexpectedExecution: boolean; unverifiedRecoveryClaim: boolean; duplicateFinancialEffect: boolean; traceComplete: boolean; logicalLatencyMillis: number; policyDisposition: string; evidenceLabel: string;
+}
+
+export interface HistoricalValidationReport {
+  title: string; truthLabel: string; corpusVersion: string; manifestSha256: string; acceptedPublicSourceCases: number; derivedReplayCount: number; oldestSourceDate: string; newestSourceDate: string; sourceComposition: Record<string, number>; passed: number; partial: number; failed: number; safeRefusals: number; unsafeExecutions: number; duplicateFinancialEffects: number; unverifiedRecoveryClaims: number; decisionTraceCompleteness: number; replayDeterminismRate: number; cases: HistoricalValidationCaseResult[]; limitations: string[];
+}
+
+export interface DecisionCertificate {
+  id: string; decisionId: string; incidentId: string; recoveryActionId?: string | null; decisionType: string; policyVersion: string; modelVersion: string; featureSchemaVersion: string; strategyVersion: string; inputSnapshotHash: string; evidenceCapsuleHash?: string | null; candidateActions: string[]; rejectedAlternatives: string[]; selectedAction: string; counterfactualMethod: string; evidenceQuality: string; expectedIncrementalValueMinor?: number | null; authorizationResult: string; exposureDecision: string; finalTruthState: string; certificateVersion: string; certificateSha256: string; createdAt: string;
 }

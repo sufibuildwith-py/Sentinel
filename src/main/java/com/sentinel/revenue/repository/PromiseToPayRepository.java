@@ -6,4 +6,5 @@ import java.util.*;
 public interface PromiseToPayRepository extends JpaRepository<PromiseToPay, UUID> {
     List<PromiseToPay> findAllByCustomerRefAndStatusIn(String customerRef, Collection<PromiseStatus> statuses);
     List<PromiseToPay> findAllByRecoveryActionIdAndStatusIn(UUID actionId, Collection<PromiseStatus> statuses);
+    List<PromiseToPay> findAllByCustomerRef(String customerRef);
 }

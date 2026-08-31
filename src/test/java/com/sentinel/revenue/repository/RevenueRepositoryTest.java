@@ -19,6 +19,12 @@ import com.sentinel.revenue.model.RiskLevel;
 import com.sentinel.revenue.model.RootCauseCandidate;
 import com.sentinel.revenue.model.SystemicIncidentMember;
 import com.sentinel.revenue.model.SystemicRecoveryIncident;
+import com.sentinel.revenue.model.RecoveryCostEntry;
+import com.sentinel.revenue.model.DecisionCertificate;
+import com.sentinel.revenue.model.DecisionCertificateDraft;
+import com.sentinel.revenue.economics.EconomicEvidenceQuality;
+import com.sentinel.revenue.economics.RecoveryCostCategory;
+import com.sentinel.revenue.economics.DecisionCertificateService;
 import com.sentinel.revenue.policy.PolicyEvaluation;
 import com.sentinel.revenue.policy.PolicyRuleResult;
 import com.sentinel.revenue.detection.RuleOutcome;
@@ -37,8 +43,10 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest(properties = {
         "spring.jpa.hibernate.ddl-auto=validate",
@@ -46,7 +54,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Testcontainers
-@Import(JpaAuditEventRepository.class)
+@Import({JpaAuditEventRepository.class, JpaDecisionCertificateRepository.class})
 class RevenueRepositoryTest {
 
     private static final Instant NOW = Instant.parse("2026-01-15T09:00:00Z");
@@ -73,6 +81,8 @@ class RevenueRepositoryTest {
     @Autowired HistoricalIncidentRepository historicalIncidents;
     @Autowired SystemicRecoveryIncidentRepository systemicIncidents;
     @Autowired SystemicIncidentMemberRepository systemicMembers;
+    @Autowired RecoveryCostEntryRepository recoveryCosts;
+    @Autowired DecisionCertificateRepository decisionCertificates;
 
     @Test
     void paymentEventRepositoryPersistsMinorUnitsAndIdempotencyKey() {
@@ -215,6 +225,31 @@ class RevenueRepositoryTest {
                     assertThat(saved.getSystemicIncidentId()).isEqualTo(parent.getId());
                     assertThat(saved.getPaymentIncidentId()).isEqualTo(child.getIncidentId());
                 });
+    }
+
+    @Test
+    void economicFoundationPersistsAttributedCostAndImmutableCertificate() {
+        RevenueIncident incident = persistIncident();
+        RecoveryCostEntry cost = recoveryCosts.saveAndFlush(new RecoveryCostEntry(incident.getIncidentId(),
+                null, null, RecoveryCostCategory.COMPUTE, new BigDecimal("125"), "INR",
+                "metered-test", "FIXED_TEST_RATE", EconomicEvidenceQuality.DETERMINISTIC,
+                "cost-v1", NOW, NOW));
+        UUID decisionId = UUID.randomUUID();
+        DecisionCertificateDraft draft = new DecisionCertificateDraft(decisionId, incident.getIncidentId(),
+                null, "RECOVERY_OPPORTUNITY_SHADOW", "policy-v1", "none-deterministic",
+                "opportunity-v1", "strategy-v1", DecisionCertificateService.hashText("snapshot"),
+                null, List.of("NO_ACTION"), List.of(), "NO_ACTION", "NOT_ESTIMATED",
+                EconomicEvidenceQuality.NOT_ESTIMATED, null, "SHADOW_ONLY_NOT_AUTHORIZED",
+                "NOT_EVALUATED", null, null, null, "cost-entry:" + cost.getId(),
+                "SHADOW_ONLY_NO_EXECUTION", "decision-certificate-v1");
+        DecisionCertificate certificate = decisionCertificates.append(new DecisionCertificate(
+                draft, DecisionCertificateService.hashText("certificate"), NOW));
+
+        assertThat(recoveryCosts.findAllByIncidentIdOrderByOccurredAtAsc(incident.getIncidentId()))
+                .singleElement().extracting(RecoveryCostEntry::getAmountMinor).isEqualTo(new BigDecimal("125"));
+        assertThat(decisionCertificates.findByDecisionId(decisionId)).contains(certificate);
+        assertThatThrownBy(() -> decisionCertificates.append(certificate))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("append-only");
     }
 
     private RevenueIncident persistIncident() {

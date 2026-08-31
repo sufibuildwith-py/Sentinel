@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
@@ -68,6 +69,7 @@ export default function EvaluationPage() {
   const strategy = report.strategyPerformance.map((item) => ({ ...item, name: item.strategy.replaceAll("_", " "), rate: +(item.recoveryRate * 100).toFixed(1) }));
   return <div><PageHeader eyebrow="Proof phase" title="Sentinel Evaluation Lab" description="Reproducible evidence that detection, policy, recovery and webhook safeguards behave as specified under deterministic failures." onRefresh={() => void evaluation.refetch()} refreshing={evaluation.isFetching || run.isPending} updated={evaluation.dataUpdatedAt ? new Date(evaluation.dataUpdatedAt) : undefined} />
     <div className="mb-5 border-b border-white/[0.06] py-4 font-mono text-xs tracking-[0.15em] text-[#888888] uppercase">{report.datasetSize} scenarios · {report.policyCompliance.numerator}/{report.policyCompliance.denominator} policy compliance · {report.duplicateFinancialEffects} unsafe executions · {report.safetyGates.filter((gate) => gate.passed).length}/{report.safetyGates.length} gates</div>
+    <div className="mb-5 grid gap-3 sm:grid-cols-2"><Link href="/evaluation/recovery-olympics" className="glass-panel rounded-xl p-4 transition-colors hover:border-primary/30"><p className="eyebrow">Synthetic / controlled benchmark</p><p className="mt-2 text-sm font-semibold">Open 10,000-case Recovery Olympics →</p><p className="mt-2 text-xs text-muted-foreground">Seven arms with economic, safety, latency and confidence-interval evidence.</p></Link><Link href="/evaluation/historical" className="glass-panel rounded-xl p-4 transition-colors hover:border-primary/30"><p className="eyebrow">Public-source historical validation</p><p className="mt-2 text-sm font-semibold">Open Razorpay Historical Case Explorer →</p><p className="mt-2 text-xs text-muted-foreground">Generated provenance counts and source-derived safety replays—never merchant transaction claims.</p></Link></div>
     <div className="mb-5 flex flex-col justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[.055] p-4 sm:flex-row sm:items-center">
       <div>
         <p className="text-xs font-semibold text-primary">Sentinel Evaluation Lab — Razorpay Test Mode / Synthetic Evaluation</p>

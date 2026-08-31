@@ -15,11 +15,14 @@ public class RecoverySafetyGovernor {
     private final RecoveryOutcomeRepository outcomes;
     private final RecoveryJobRepository jobs;
     private final RecoveryGovernorDecisionRepository decisions;
+    private final DynamicRecoveryGovernor dynamicGovernor;
     public RecoverySafetyGovernor(RecoverySafetyProperties properties, KillSwitchService killSwitches,
                                   RecoveryActionRepository actions, RecoveryOutcomeRepository outcomes,
-                                  RecoveryJobRepository jobs, RecoveryGovernorDecisionRepository decisions) {
+                                  RecoveryJobRepository jobs, RecoveryGovernorDecisionRepository decisions,
+                                  DynamicRecoveryGovernor dynamicGovernor) {
         this.properties = properties; this.killSwitches = killSwitches; this.actions = actions;
         this.outcomes = outcomes; this.jobs = jobs; this.decisions = decisions;
+        this.dynamicGovernor = dynamicGovernor;
     }
 
     @Transactional
@@ -60,6 +63,19 @@ public class RecoverySafetyGovernor {
                 .filter(candidate -> outcomes.findByRecoveryActionId(candidate.getId()).stream()
                         .noneMatch(RecoveryOutcome::isProviderConfirmed))
                 .mapToLong(RecoveryAction::getAmountMinor).sum();
+        DynamicGovernorAssessment posture = dynamicGovernor.assess(new GovernorSignalSnapshot(
+                toolFailureRate, unreconciled, totalValue, envelope.maxUnreconciledValueMinor(),
+                envelope.maxTotalValueMinor()), envelope.maxToolFailureRate());
+        if (posture.posture() == GovernorPosture.RED) violations.add("DYNAMIC_GOVERNOR_RED");
+        if (posture.posture() == GovernorPosture.ORANGE && action.getPolicyDecision() == PolicyDecision.AUTO)
+            violations.add("DYNAMIC_GOVERNOR_ORANGE_HUMAN_REQUIRED");
+        if (posture.posture() == GovernorPosture.YELLOW) {
+            long canaryLimit = Math.max(1, Math.round(envelope.maxValuePerIncidentMinor()
+                    * posture.authorityMultiplier()));
+            if (requestedValueMinor > canaryLimit)
+                violations.add("DYNAMIC_GOVERNOR_YELLOW_CANARY_LIMIT actual=" + requestedValueMinor
+                        + " limit=" + canaryLimit);
+        }
         if (unreconciled + requestedValueMinor > envelope.maxUnreconciledValueMinor())
             violations.add("MAX_UNRECONCILED_VALUE actual=" + (unreconciled + requestedValueMinor));
         boolean allowed = violations.isEmpty();

@@ -52,6 +52,14 @@ flowchart TD
     Capsule --> Tower
     Evaluation[Existing deterministic evaluation harness] --> FailureLab[Failure Lab]
     FailureLab -. fault / synthetic / shadow labels .-> Tower
+    Economics[Counterfactual economics<br/>cost ledger + portfolio] --> Certificate[(Decision Certificate)]
+    Policy --> Certificate
+    Governor --> Certificate
+    Certificate --> Tower
+    Olympics[10K Recovery Olympics<br/>synthetic / controlled] --> Evaluation
+    Historical[500 public-source Razorpay cases<br/>provenance-linked] --> HistoricalReplay[Source-derived safety replay]
+    HistoricalReplay --> Evaluation
+    HistoricalReplay -. no provider/customer tool path .-> Deny
 ```
 
 ## Runtime boundaries
@@ -63,5 +71,7 @@ flowchart TD
 - **Razorpay Test Mode:** the only execution target; policy or persisted human approval must grant permission first.
 - **Replay/shadow boundary:** immutable, version-attributed evaluation with no provider, execution, webhook mutation, or communication adapter dependencies.
 - **Control Tower / Failure Lab:** sanitized operational read models and truth-labelled safety evidence; neither surface can turn simulation or shadow output into recovered revenue.
+- **V2 economics:** integer-minor-unit costs, evidence-classed counterfactuals, constrained portfolio ranking, and immutable version-attributed Decision Certificates remain proposals/evidence until deterministic authority permits execution.
+- **Recovery Olympics / Historical Validation:** controlled synthetic economics and public-source historical safety are distinct proof systems and are never blended into one marketing number.
 
 See [SETUP.md](SETUP.md) for the one-command runtime and [evaluation/README.md](evaluation/README.md) for the reproducible proof contract.

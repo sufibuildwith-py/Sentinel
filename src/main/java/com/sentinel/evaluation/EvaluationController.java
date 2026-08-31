@@ -14,8 +14,15 @@ import java.nio.charset.StandardCharsets;
 @RequestMapping("/api/v1/evaluation")
 public class EvaluationController {
     private final EvaluationReportService reports;
+    private final RecoveryOlympicsHarness recoveryOlympics;
+    private final HistoricalValidationRunner historicalValidation;
 
-    public EvaluationController(EvaluationReportService reports) { this.reports = reports; }
+    public EvaluationController(EvaluationReportService reports, RecoveryOlympicsHarness recoveryOlympics,
+                                HistoricalValidationRunner historicalValidation) {
+        this.reports = reports;
+        this.recoveryOlympics = recoveryOlympics;
+        this.historicalValidation = historicalValidation;
+    }
 
     @GetMapping("/report")
     public EvaluationReport report() { return reports.report(); }
@@ -25,6 +32,12 @@ public class EvaluationController {
         reports.runAndPersist();
         return reports.report();
     }
+
+    @GetMapping("/recovery-olympics")
+    public RecoveryOlympicsReport recoveryOlympics() { return recoveryOlympics.evaluate(); }
+
+    @GetMapping("/historical")
+    public HistoricalValidationReport historicalValidation() { return historicalValidation.evaluate(); }
 
     @GetMapping(value = "/report.json", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<byte[]> jsonDownload() {

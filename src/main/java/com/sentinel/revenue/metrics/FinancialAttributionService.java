@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
+import java.math.BigDecimal;
 import java.util.*;
 
 @Service
@@ -16,11 +17,12 @@ public class FinancialAttributionService {
     private final IncidentFindingRepository findings;
     private final RecoveryActionRepository actions;
     private final RecoveryOutcomeRepository outcomes;
+    private final RecoveryCostEntryRepository costs;
     public FinancialAttributionService(RevenueIncidentRepository incidents, PaymentEventRepository payments,
                                        IncidentFindingRepository findings, RecoveryActionRepository actions,
-                                       RecoveryOutcomeRepository outcomes) {
+                                       RecoveryOutcomeRepository outcomes, RecoveryCostEntryRepository costs) {
         this.incidents = incidents; this.payments = payments; this.findings = findings;
-        this.actions = actions; this.outcomes = outcomes;
+        this.actions = actions; this.outcomes = outcomes; this.costs = costs;
     }
 
     @Transactional(readOnly = true)
@@ -40,10 +42,14 @@ public class FinancialAttributionService {
         long confirmed = deduplicatedConfirmedRecovery(actionById, outcomes.findAll());
         long unreconciled = Math.max(0, executed - confirmed);
         long attributed = Math.max(0, confirmed - naturalRecovery);
-        long cost = 0;
+        List<RecoveryCostEntry> recordedCosts = costs.findAll();
+        long cost = recordedCosts.stream().map(RecoveryCostEntry::getAmountMinor)
+                .reduce(BigDecimal.ZERO, BigDecimal::add).longValueExact();
         return new FinancialAttribution(LABEL, failed, ineligible, addressable, naturalRecovery,
                 "NOT_ESTIMATED_NO_CAUSAL_BASELINE", incrementalOpportunity, executed, confirmed,
-                unreconciled, attributed, cost, "NOT_CONFIGURED", attributed - cost,
+                unreconciled, attributed, cost,
+                recordedCosts.isEmpty() ? "NOT_CONFIGURED" : "RECORDED_LEDGER_COSTS",
+                attributed - cost,
                 timings(allIncidents, allActions));
     }
 

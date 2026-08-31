@@ -6,4 +6,5 @@ import java.util.*;
 public interface CustomerInteractionRepository extends JpaRepository<CustomerInteraction, UUID> {
     long countByCustomerRefAndCreatedAtAfter(String customerRef, Instant after);
     List<CustomerInteraction> findAllByIncidentIdOrderByCreatedAtAsc(UUID incidentId);
+    List<CustomerInteraction> findAllByCustomerRefOrderByCreatedAtAsc(String customerRef);
 }

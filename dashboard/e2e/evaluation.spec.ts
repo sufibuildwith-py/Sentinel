@@ -40,3 +40,16 @@ test("failure laboratory remains explicit and bounded", async ({ page }) => {
   await expect(page.getByText("Already-paid conflicting state")).toBeVisible();
   await expect(page.getByText("BOUNDED", { exact: true })).toHaveCount(7);
 });
+
+test("V2 proof routes preserve truth labels and do not invent fixture results", async ({ page }) => {
+  await page.goto("/evaluation/recovery-olympics");
+  await expect(page.getByRole("heading", { name: "10,000-case controlled economics benchmark" })).toBeVisible();
+  await expect(page.getByText("SYNTHETIC / CONTROLLED BENCHMARK", { exact: true })).toBeVisible();
+  await expect(page.getByText("Benchmark unavailable in fixture mode")).toBeVisible();
+
+  await page.goto("/evaluation/historical");
+  await expect(page.getByRole("heading", { name: "Razorpay public-source case corpus" })).toBeVisible();
+  await expect(page.getByText("PUBLIC-SOURCE HISTORICAL VALIDATION", { exact: true })).toBeVisible();
+  await expect(page.getByText("Historical corpus unavailable in fixture mode")).toBeVisible();
+  await expect(page.getByText("500", { exact: true })).toHaveCount(0);
+});

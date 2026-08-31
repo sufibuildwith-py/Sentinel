@@ -550,6 +550,17 @@ The post-proof hardening path is additive. It preserves the Phase 9 oracle while
 
 Operational surfaces: `http://localhost:3000/control-tower` and `http://localhost:3000/demo`.
 
+### Recovery Intelligence V2
+
+The V2 extension preserves every existing authority boundary while adding a typed Razorpay capability marketplace, immutable cost ledger and Decision Certificates, honest M0/M1 counterfactual estimates, timing/channel recommendations, constrained portfolio and human-review optimization, bounded customer recovery profiles, compiled merchant policy constitutions, a dynamic governor that can only reduce authority, and controlled holdout experiments with regret analysis.
+
+Two proof systems remain deliberately separate:
+
+- **Recovery Olympics — SYNTHETIC / CONTROLLED BENCHMARK:** exactly 10,000 deterministic cases with seed `20260901`, frozen into 7,000 development, 2,000 held-out, and 1,000 adversarial cases. Seven arms receive identical natural-recovery and risk conditions. Competitor-inspired arms are labelled `DOCUMENTED_APPROXIMATION`; refusals, `NO_ACTION`, costs, losses, unsafe executions, policy violations, confidence intervals, and logical latency are all visible. See [`evaluation/RECOVERY_OLYMPICS.md`](evaluation/RECOVERY_OLYMPICS.md) and `/evaluation/recovery-olympics`.
+- **Razorpay Historical Validation — PUBLIC-SOURCE HISTORICAL VALIDATION:** 500 unique frozen public issues from repositories owned by the official Razorpay GitHub organization, selected from 800 candidates. Each case has canonical provenance, a source date, content hash, bounded normalized facts, and one separately labelled source-derived safety replay. Full issue bodies and payment/customer identifiers are not republished. See [`evaluation/razorpay-historical/README.md`](evaluation/razorpay-historical/README.md) and `/evaluation/historical`.
+
+The Historical Validation count is generated from the checked-in manifest and must not be displayed if corpus validation yields fewer than 500 unique accepted sources. Neither proof system invokes Razorpay, contacts a customer, or grants execution authority.
+
 **What this proves:** the checked-in decision code matches an independent labelled oracle for the committed scenario matrix; mandatory stop and approval gates cannot be bypassed by evaluated paths; duplicate/invalid/out-of-order inputs do not double count financial outcomes; provider/model failures are bounded; the full proof is reproducible without credentials on real PostgreSQL.
 
 **What this does not prove:** production payment-success uplift, real merchant recovery rate, causal impact, workload capacity, or scenario prevalence. Logical p50/p95 latency detects regression in the fixture cost model — it is not a production benchmark. Razorpay neither endorses these results nor is represented by the synthetic provider fixtures.
@@ -564,7 +575,7 @@ CI (`.github/workflows/phase9-proof.yml`) runs credential-pattern/generated-file
 **Goal:** Freeze features and deliver a reproducible, polished Buildathon release.
 
 **Release result**
-- `docker compose up --build` starts PostgreSQL, runs Flyway V1–V7, waits for the backend health check, and serves the dashboard.
+- `docker compose up --build` starts PostgreSQL, runs Flyway V1–V22, waits for the backend health check, and serves the dashboard.
 - [`.env.example`](.env.example) documents Gemini, Razorpay Test Mode, and database configuration without real credentials.
 - [SETUP.md](SETUP.md) is the nine-step setup/demo card; [ARCHITECTURE.md](ARCHITECTURE.md) is the reviewer-first Mermaid system map.
 - [CONTRIBUTING.md](CONTRIBUTING.md), Docker build contexts, non-root runtime images, health checks, and credential scans form the release boundary.
@@ -592,7 +603,13 @@ POST /api/v1/revenue/actions/{id}/notify/{medium} # optional bounded notificatio
 GET  /api/v1/revenue/approvals                    # pending human decisions
 GET  /api/v1/revenue/metrics                      # evaluation/recovery metrics
 GET  /api/v1/revenue/financial-attribution        # financial waterfall and TTD/TGD/TTE/TTR
+GET  /api/v1/revenue/lost-revenue                 # unrecovered value with evidence-labelled reasons
 GET  /api/v1/revenue/control-tower                # sanitized governed operations view
+GET  /api/v1/revenue/action-marketplace           # typed/versioned Razorpay capability catalog
+GET  /api/v1/revenue/incidents/{id}/recovery-costs # immutable recovery cost entries
+GET  /api/v1/revenue/incidents/{id}/decision-certificates # immutable version-attributed decisions
+GET  /api/v1/revenue/incidents/{id}/counterfactuals # M0/M1 estimates with evidence quality
+GET  /api/v1/revenue/incidents/{id}/timing-recommendation # timing/channel recommendation only
 GET  /api/v1/revenue/incidents/{id}/audit-trail   # immutable incident timeline
 GET  /api/v1/revenue/incidents/{id}/evidence-capsule # grounded decision evidence
 GET  /api/v1/revenue/payment-health               # rolling health windows and signals
@@ -611,6 +628,8 @@ POST /api/v1/failure-lab/scenarios/{id}/run       # evaluate existing proof evid
 GET  /api/v1/evaluation/report                    # latest deterministic proof
 POST /api/v1/evaluation/run                       # regenerate deterministic proof
 GET  /api/v1/evaluation/report.{json|md}          # downloadable proof artifacts
+GET  /api/v1/evaluation/recovery-olympics         # fixed-seed 10K controlled benchmark
+GET  /api/v1/evaluation/historical                # generated public-source historical validation
 ```
 
 ### Priority rules

@@ -30,6 +30,8 @@ public class CustomerInteraction {
     }
     public UUID getId() { return id; } public UUID getIncidentId() { return incidentId; }
     public UUID getRecoveryActionId() { return recoveryActionId; } public String getCustomerRef() { return customerRef; }
+    public String getChannel() { return channel; }
     public String getDeliveryMode() { return deliveryMode; } public String getStatus() { return status; }
     public List<String> getPolicyTrace() { return List.copyOf(policyTrace); }
+    public Instant getCreatedAt() { return createdAt; }
 }
