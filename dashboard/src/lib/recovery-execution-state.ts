@@ -38,7 +38,7 @@ export function normalizeRecoveryExecution(detail: IncidentDetail, audit: AuditE
   const governorEvent = last(/\bBLAST_RADIUS_EVALUATED\b/i);
   const humanApprovedEvent = last(/\bHUMAN_APPROVED\b/i);
   const humanRejectedEvent = last(/\bHUMAN_REJECTED\b/i);
-  const policyDecision = action?.policyDecision ?? policyEvent?.policyResult ?? null;
+  const policyDecision = action?.policyDecision ?? policyEvent?.policyResult ?? detail.incident.policyDecision ?? null;
   const policyResolution: Resolution = policyDecision === "DENY" ? "DENIED"
     : policyDecision === "AUTO" || policyDecision === "HUMAN" ? "ALLOWED"
     : detail.incident.status === "POLICY_REVIEW" ? "ACTIVE" : "NOT_STARTED";
@@ -62,10 +62,8 @@ export function normalizeRecoveryExecution(detail: IncidentDetail, audit: AuditE
       if (governorResolution === "NOT_STARTED") governorResolution = "NOT_REQUIRED";
     } else if (humanApprovedEvent && ["APPROVED", "EXECUTING", "RETRY_PENDING", "EXECUTION_UNCERTAIN", "EXECUTED", "PARTIALLY_RECOVERED", "RECOVERED"].includes(action?.status ?? "") && Boolean(action?.approvedAt)) {
       humanApprovalPersisted = true;
-      humanResolution = governorResolution === "NOT_STARTED" ? "PENDING" : "APPROVED";
-      humanReason = governorResolution === "NOT_STARTED"
-        ? "Human approval is recorded; execution awaits the governor evaluation performed by the execute command"
-        : humanApprovedEvent.narrative;
+      humanResolution = "APPROVED";
+      humanReason = humanApprovedEvent.narrative;
     } else {
       humanResolution = "PENDING";
       humanReason = "Explicit persisted human approval is required";

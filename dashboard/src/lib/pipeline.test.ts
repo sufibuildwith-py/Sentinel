@@ -7,7 +7,7 @@ describe("incident command-center state", () => {
   it("maps every workflow state to a bounded pipeline step", () => {
     expect(progressFor("DETECTED")).toBe(0);
     expect(progressFor("DIAGNOSED")).toBe(3);
-    expect(progressFor("HUMAN_REVIEW")).toBe(8);
+    expect(progressFor("HUMAN_REVIEW")).toBe(7);
     expect(progressFor("MONITORING")).toBe(11);
     expect(progressFor("RECOVERED")).toBe(12);
   });

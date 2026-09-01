@@ -1,8 +1,8 @@
 import type { AuditEntry, IncidentDetail, IncidentStatus } from "./types";
 import { normalizeRecoveryExecution, type RecoveryExecutionState } from "./recovery-execution-state";
 
-export const pipeline = ["Detect", "Triage", "Evidence", "Diagnose", "Counterfactual", "Plan", "Policy", "Governor", "Human", "Execute", "Accept", "Reconcile", "Learn"] as const;
-const progress: Record<IncidentStatus, number> = { DETECTED: 0, INVESTIGATING: 1, DIAGNOSED: 3, PLANNING: 5, POLICY_REVIEW: 6, HUMAN_REVIEW: 8, APPROVED: 8, EXECUTING: 9, MONITORING: 11, RECOVERED: 12, FAILED: 11, STOPPED: 6 };
+export const pipeline = ["Detect", "Triage", "Evidence", "Diagnose", "Counterfactual", "Plan", "Policy", "Human", "Governor", "Execute", "Accept", "Reconcile", "Learn"] as const;
+const progress: Record<IncidentStatus, number> = { DETECTED: 0, INVESTIGATING: 1, DIAGNOSED: 3, PLANNING: 5, POLICY_REVIEW: 6, HUMAN_REVIEW: 7, APPROVED: 7, EXECUTING: 9, MONITORING: 11, RECOVERED: 12, FAILED: 11, STOPPED: 6 };
 export const progressFor = (status: IncidentStatus) => progress[status];
 export const nextActionFor = (status: IncidentStatus) => status === "DETECTED" ? "investigate" : status === "DIAGNOSED" ? "plan" : status === "APPROVED" ? "execute" : null;
 
@@ -53,19 +53,18 @@ export function derivePipelineStages(normalized: RecoveryExecutionState): Pipeli
     fromAudit("Counterfactual", opportunity, opportunity ? "COMPLETE" : detail.incident.status === "PLANNING" ? "ACTIVE" : "QUEUED", "No persisted counterfactual or opportunity evaluation"),
     itemPlan(detail) ? fromAudit("Plan", proposal, "COMPLETE", "Persisted recovery proposal") : fromAudit("Plan", proposal, proposal ? "COMPLETE" : detail.incident.status === "PLANNING" ? "ACTIVE" : "QUEUED", "No persisted recovery proposal"),
     fromAudit("Policy", policyBlock ?? policyDecision, normalized.policy.resolution === "DENIED" ? "BLOCKED" : normalized.policy.resolution === "ALLOWED" ? "COMPLETE" : normalized.policy.resolution === "ACTIVE" ? "ACTIVE" : "QUEUED", action?.policyDecision ? `Persisted policy disposition ${action.policyDecision}` : "No persisted policy decision"),
+    fromAudit("Human", normalized.humanReview.event,
+      normalized.humanReview.resolution === "APPROVED" ? "COMPLETE"
+        : normalized.humanReview.resolution === "REJECTED" ? "BLOCKED"
+        : normalized.humanReview.resolution === "PENDING" ? "HELD"
+        : normalized.humanReview.resolution === "NOT_REQUIRED" ? "NOT_APPLICABLE" : "QUEUED",
+      normalized.humanReview.reason),
     fromAudit("Governor", governorBlock ?? governorDecision,
       normalized.governor.resolution === "DENIED" ? "BLOCKED"
         : normalized.governor.resolution === "ALLOWED" ? "COMPLETE"
         : normalized.governor.resolution === "ACTIVE" ? "ACTIVE"
         : normalized.governor.resolution === "NOT_REQUIRED" ? "SKIPPED" : "QUEUED",
       normalized.governor.reason),
-    fromAudit("Human", normalized.humanReview.event,
-      normalized.humanReview.resolution === "APPROVED" ? "COMPLETE"
-        : normalized.humanReview.resolution === "REJECTED" ? "BLOCKED"
-        : normalized.humanReview.resolution === "PENDING" && normalized.humanReview.approvalPersisted ? "HELD"
-        : normalized.humanReview.resolution === "PENDING" && normalized.governor.resolution === "ALLOWED" ? "HELD"
-        : normalized.humanReview.resolution === "NOT_REQUIRED" ? "NOT_APPLICABLE" : "QUEUED",
-      normalized.humanReview.reason),
     executionFailed ? fromAudit("Execute", executionFailed, "FAILED", "Provider execution ended safely")
       : executionClaimed || action?.executedAt ? fromAudit("Execute", executionClaimed, action?.status === "EXECUTING" ? "ACTIVE" : "COMPLETE", action?.executedAt ? `Execution persisted ${action.executedAt}` : "Execution claimed")
       : view("Execute", policyBlock || governorBlock || normalized.humanReview.resolution === "REJECTED" ? "SKIPPED" : detail.incident.status === "EXECUTING" ? "ACTIVE" : "QUEUED", "No persisted execution event"),

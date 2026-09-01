@@ -13,7 +13,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupConte
 const navigation = [
   { href: "/console", label: "Overview", icon: Gauge },
   { href: "/recovery", label: "Recovery", icon: Sparkles },
-  { href: "/incidents", label: "Incidents", icon: Activity },
+  { href: "/incidents", label: "Cases", icon: Activity },
   { href: "/approvals", label: "Review queue", icon: ListChecks },
   { href: "/intelligence", label: "Intelligence", icon: BrainCircuit },
   { href: "/governance", label: "Governance", icon: ShieldCheck },

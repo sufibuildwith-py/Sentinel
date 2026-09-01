@@ -1,4 +1,4 @@
-import { fixtureApprovals, fixtureAudit, fixtureDetail, fixtureIncidents, fixtureMetrics } from "./fixtures";
+import { fixtureApprovals, fixtureAuditByIncidentId, fixtureIncidentDetails, fixtureIncidents, fixtureMetrics } from "./fixtures";
 import { fixtureEvaluation } from "./evaluation-fixture";
 import type { ActionMarketplace, Approval, AuditEntry, ControlTower, CounterfactualEstimate, CustomerRecoveryProfile, DecisionCertificate, EvaluationReport, EvidenceCapsule, ExecutionResult, FailureLabResult, FailureLabScenario, FinancialAttribution, HistoricalValidationReport, IncidentDetail, IncidentSummary, LlmDiagnostic, LostRevenueExplorer, Metrics, PlanningResult, RecoveryCostEntry, RecoveryOlympicsReport, RegisteredModel, TimingRecommendation } from "./types";
 
@@ -20,6 +20,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 const delay = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), 180));
+
+function fixtureIncidentDetail(id: string): IncidentDetail {
+  const detail = fixtureIncidentDetails[id];
+  if (!detail) throw new SentinelApiError("Fixture incident not found", 404, undefined, "NOT_FOUND");
+  return detail;
+}
+
+function fixtureIncidentAudit(id: string): AuditEntry[] {
+  return fixtureAuditByIncidentId[id] ?? [];
+}
 
 const fixtureFailureLab: FailureLabScenario[] = [
   ["duplicate-webhook", "Duplicate webhook", "At-least-once delivery produces one financial effect.", "FAULT_INJECTION", "IDEMPOTENT_ACK"],
@@ -66,23 +76,27 @@ export const api = {
     });
   },
   incidents: () => USE_FIXTURES ? delay(fixtureIncidents) : request<IncidentSummary[]>("/api/v1/revenue/incidents"),
-  incident: (id: string) => USE_FIXTURES ? delay({ ...fixtureDetail, incident: fixtureIncidents.find((item) => item.incidentId === id) ?? fixtureDetail.incident }) : request<IncidentDetail>(`/api/v1/revenue/incidents/${id}`),
+  incident: (id: string) => USE_FIXTURES ? delay(fixtureIncidentDetail(id)) : request<IncidentDetail>(`/api/v1/revenue/incidents/${id}`),
   approvals: () => USE_FIXTURES ? delay(fixtureApprovals) : request<Approval[]>("/api/v1/revenue/approvals"),
   metrics: async () => {
     if (USE_FIXTURES) return delay(fixtureMetrics);
     const [raw, incidents] = await Promise.all([request<Omit<Metrics, "activeIncidents" | "strategyPerformance"> & { strategyPerformance: { strategy: string; attemptedRecoveryMinor: number; recoveredRevenueMinor: number; recoveryRate: number; }[] }>("/api/v1/revenue/metrics"), request<IncidentSummary[]>("/api/v1/revenue/incidents")]);
     return { ...raw, activeIncidents: incidents.filter((item) => !["RECOVERED", "FAILED", "STOPPED"].includes(item.status)).length, strategyPerformance: raw.strategyPerformance.map((item) => ({ strategy: item.strategy.replaceAll("_", " "), attemptedMinor: item.attemptedRecoveryMinor, recoveredMinor: item.recoveredRevenueMinor, rate: item.recoveryRate })) } as Metrics;
   },
-  audit: (id: string) => USE_FIXTURES ? delay(fixtureAudit) : request<AuditEntry[]>(`/api/v1/revenue/incidents/${id}/audit-trail`),
+  audit: (id: string) => USE_FIXTURES ? delay(fixtureIncidentAudit(id)) : request<AuditEntry[]>(`/api/v1/revenue/incidents/${id}/audit-trail`),
   capsule: async (id: string): Promise<EvidenceCapsule> => {
     if (!USE_FIXTURES) return request<EvidenceCapsule>(`/api/v1/revenue/incidents/${id}/evidence-capsule`);
+    const detail = fixtureIncidentDetail(id);
     return delay({
       incidentId: id, assembledAt: new Date().toISOString(), webhooks: [],
-      providerTruth: fixtureDetail.truth ?? { stage: "PROPOSED", executionMode: "SYNTHETIC_BENCHMARK", providerAccepted: false, awaitingReconciliation: false, providerConfirmed: false, providerConfirmedAmountMinor: 0, basis: "Fixture evidence only" },
-      systemicEvidence: fixtureDetail.findings.map((finding, index) => ({ evidenceId: `fixture-${index}`, source: finding.source, summary: finding.summary, confidence: finding.confidence, capturedAt: finding.createdAt, fresh: true })),
-      agentClaims: [], prediction: fixtureDetail.findings.find((finding) => finding.source === "ROOT_CAUSE_AGENT")?.summary,
-      policy: [], execution: null, reconciliation: null, finalOutcome: fixtureDetail.incident.latestOutcome ?? "NOT_PROVIDER_CONFIRMED",
-      completeness: { presentStages: 3, totalStages: 9, missingStages: ["WEBHOOK", "AGENT_CLAIMS", "POLICY", "EXECUTION", "RECONCILIATION", "FINAL_OUTCOME"] },
+      providerTruth: detail.truth ?? { stage: "PROPOSED", executionMode: "SYNTHETIC_BENCHMARK", providerAccepted: false, awaitingReconciliation: false, providerConfirmed: false, providerConfirmedAmountMinor: 0, basis: "No incident-scoped provider truth is available" },
+      systemicEvidence: detail.findings.map((finding, index) => ({ evidenceId: `${id}-fixture-${index}`, source: finding.source, summary: finding.summary, confidence: finding.confidence, capturedAt: finding.createdAt, fresh: true })),
+      agentClaims: [], prediction: detail.findings.find((finding) => finding.source === "ROOT_CAUSE_AGENT")?.summary,
+      policy: fixtureIncidentAudit(id).filter((entry) => entry.stage.includes("POLICY")).map((entry) => ({ timestamp: entry.timestamp, narrative: entry.narrative, ruleTrace: entry.ruleTrace, result: entry.policyResult })),
+      execution: detail.action ? { actionId: detail.action.actionId, status: detail.action.status, policyDecision: detail.action.policyDecision, executionMode: detail.truth?.executionMode ?? "SYNTHETIC_BENCHMARK", providerResourceId: detail.action.providerId, executedAt: detail.action.executedAt } : null,
+      reconciliation: detail.truth?.providerConfirmed ? { outcomeId: `${id}-fixture-outcome`, status: "RECOVERED", recoveredAmountMinor: detail.truth.providerConfirmedAmountMinor, providerConfirmed: true, confirmationSource: "SIGNED_FIXTURE_EVENT", sourceEventId: fixtureIncidentAudit(id).findLast((entry) => entry.stage === "OBSERVE")?.eventId, occurredAt: fixtureIncidentAudit(id).at(-1)?.timestamp ?? detail.incident.detectedAt } : null,
+      finalOutcome: detail.incident.latestOutcome ?? "NOT_PROVIDER_CONFIRMED",
+      completeness: { presentStages: detail.findings.length, totalStages: 9, missingStages: detail.findings.length ? ["AGENT_CLAIMS"] : ["EVIDENCE", "AGENT_CLAIMS", "EXECUTION", "RECONCILIATION", "FINAL_OUTCOME"] },
     });
   },
   financialAttribution: async (): Promise<FinancialAttribution> => {

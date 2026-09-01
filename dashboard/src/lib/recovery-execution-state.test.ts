@@ -26,13 +26,14 @@ const approvedAudit = [
 ];
 
 describe("normalized persisted recovery execution state", () => {
-  it("distinguishes recorded human approval from a governor gate that has not run", () => {
+  it("places explicit human approval before the governor gate", () => {
     const state = normalizeRecoveryExecution(approvedHuman, approvedAudit);
     const stages = derivePipelineStages(state);
     expect(stages.find((stage) => stage.label === "Governor")?.state).toBe("QUEUED");
-    expect(stages.find((stage) => stage.label === "Human")?.state).toBe("HELD");
+    expect(stages.find((stage) => stage.label === "Human")?.state).toBe("COMPLETE");
     expect(state.humanReview.approvalPersisted).toBe(true);
-    expect(state.humanReview.reason).toContain("approval is recorded");
+    expect(state.humanReview.reason).toContain("Explicit human approval");
+    expect(stages.findIndex((stage) => stage.label === "Human")).toBeLessThan(stages.findIndex((stage) => stage.label === "Governor"));
   });
 
   it("does not complete a downstream gate without its persisted prerequisite", () => {
@@ -98,6 +99,19 @@ describe("normalized persisted recovery execution state", () => {
     };
     const favorableShadow = [...approvedAudit, event("shadow-allow", "SHADOW_OPPORTUNITY_EVALUATED", "OPPORTUNITY_ENGINE", "Shadow recommends intervention")];
     expect(derivePrimaryRecoveryAction(normalizeRecoveryExecution(denied, favorableShadow))).toMatchObject({ kind: "GOVERNOR_BLOCKED", operation: null });
+  });
+
+  it("uses the incident-scoped summary disposition without inventing provider evidence", () => {
+    const pending = normalizeRecoveryExecution({
+      ...approvedHuman,
+      incident: { ...approvedHuman.incident, status: "HUMAN_REVIEW", policyDecision: "HUMAN" },
+      findings: [], plan: null, action: null, governor: null, truth: null,
+    }, []);
+
+    expect(pending.policy.resolution).toBe("ALLOWED");
+    expect(pending.humanReview.resolution).toBe("PENDING");
+    expect(pending.provider.accepted).toBe(false);
+    expect(pending.reconciliation.confirmed).toBe(false);
   });
 
   it("renders terminal policy and human refusals without queued downstream execution", () => {
