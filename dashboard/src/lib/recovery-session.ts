@@ -1,4 +1,4 @@
-import { actionEligibility } from "./action-eligibility";
+import { derivePrimaryRecoveryAction, normalizeRecoveryExecution } from "./recovery-execution-state";
 import type { AuditEntry, IncidentDetail } from "./types";
 
 export type RecoveryOperation = "investigate" | "plan" | "execute";
@@ -16,9 +16,7 @@ export interface ExecutionLedgerRow {
 }
 
 export function nextRecoveryOperation(detail: IncidentDetail, audit: AuditEntry[]): RecoveryOperation | null {
-  if (detail.incident.status === "DETECTED") return "investigate";
-  if (detail.incident.status === "DIAGNOSED") return "plan";
-  return actionEligibility(detail, audit).executable ? "execute" : null;
+  return derivePrimaryRecoveryAction(normalizeRecoveryExecution(detail, audit)).operation;
 }
 
 export function recoveryPollingInterval(detail: IncidentDetail | undefined, activeSession: boolean): number | false {
@@ -36,8 +34,8 @@ export function isTerminalOrPaused(detail: IncidentDetail): boolean {
 
 export function sessionButtonLabel(detail: IncidentDetail, audit: AuditEntry[], pending: boolean): string {
   if (pending) return "RUNNING RECOVERY…";
-  const eligibility = actionEligibility(detail, audit);
-  if (detail.incident.status === "DETECTED" || detail.incident.status === "DIAGNOSED" || eligibility.executable) return "RUN RECOVERY";
+  const eligibility = derivePrimaryRecoveryAction(normalizeRecoveryExecution(detail, audit));
+  if (eligibility.operation) return eligibility.operation === "execute" && eligibility.label === "Resume recovery" ? "RESUME RECOVERY" : "RUN RECOVERY";
   if (eligibility.kind === "HUMAN_REVIEW") return "AWAITING HUMAN REVIEW";
   if (eligibility.kind === "POLICY_BLOCKED") return "BLOCKED BY POLICY";
   if (eligibility.kind === "GOVERNOR_BLOCKED") return "HELD BY GOVERNOR";

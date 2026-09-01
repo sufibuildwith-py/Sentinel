@@ -14,6 +14,9 @@ import java.util.UUID;
 import java.util.Optional;
 
 public interface RecoveryActionRepository extends JpaRepository<RecoveryAction, UUID> {
+    @Query("select a from RecoveryAction a where a.incident.resetAt is null")
+    List<RecoveryAction> findAllOperational();
+
     List<RecoveryAction> findAllByIncidentIncidentId(UUID incidentId);
 
     @Query("select a from RecoveryAction a where a.recoveryPlan.id = :recoveryPlanId")

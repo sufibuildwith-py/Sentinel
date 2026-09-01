@@ -19,14 +19,18 @@ public class RevenueOperationsReadService {
     private final RecoveryActionRepository actions;
     private final RecoveryOutcomeRepository outcomes;
     private final IncidentFindingRepository findings;
+    private final RecoveryGovernorDecisionRepository governorDecisions;
     private final AuditTrailService audit;
     private final RecoveryTruthResolver truthResolver;
     public RevenueOperationsReadService(RevenueIncidentRepository incidents, RecoveryPlanRepository plans,
                                         RecoveryActionRepository actions, RecoveryOutcomeRepository outcomes,
-                                        IncidentFindingRepository findings, AuditTrailService audit,
+                                        IncidentFindingRepository findings,
+                                        RecoveryGovernorDecisionRepository governorDecisions,
+                                        AuditTrailService audit,
                                         RecoveryTruthResolver truthResolver) {
         this.incidents = incidents; this.plans = plans; this.actions = actions;
         this.outcomes = outcomes; this.findings = findings; this.audit = audit;
+        this.governorDecisions = governorDecisions;
         this.truthResolver = truthResolver;
     }
 
@@ -56,12 +60,21 @@ public class RevenueOperationsReadService {
                 action.getCurrency(), action.getExternalResourceId(), action.getProviderReferenceId(),
                 action.getExternalResourceUrl(), action.getExternalResourceStatus(), action.getExecutionAttempts(),
                 action.getApprovedAt(), action.getExecutedAt());
+        RecoveryGovernorDecision governorDecision = governorDecisions
+                .findAllByIncidentIdOrderByCreatedAtAsc(id).stream()
+                .filter(decision -> action == null || action.getId().equals(decision.getRecoveryActionId()))
+                .reduce((first, second) -> second).orElse(null);
+        IncidentDetailView.GovernorView governorView = governorDecision == null ? null
+                : new IncidentDetailView.GovernorView(governorDecision.getId(), governorDecision.isAllowed(),
+                governorDecision.getAllowedValueMinor(), governorDecision.getViolations(),
+                governorDecision.getCreatedAt());
         RecoveryTruth truth = truthResolver.resolve(action, outcome);
         IncidentDetailView.TruthView truthView = new IncidentDetailView.TruthView(
                 truth.stage(), truth.executionMode(), truth.providerAccepted(),
                 truth.awaitingReconciliation(), truth.providerConfirmed(),
                 truth.providerConfirmedAmountMinor(), truth.basis());
-        return new IncidentDetailView(summary(incident), safeFindings, planView, actionView, truthView);
+        return new IncidentDetailView(summary(incident), safeFindings, planView, actionView,
+                governorView, truthView);
     }
 
     @Transactional(readOnly = true)

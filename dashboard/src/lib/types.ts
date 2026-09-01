@@ -4,8 +4,9 @@ export interface IncidentSummary { incidentId: string; type: string; status: Inc
 export interface Finding { source: string; summary: string; confidence?: number | null; evidence: string[]; createdAt: string; }
 export interface PlanView { planId: string; strategy: string; reason: string; targetAmountMinor: number; confidence: number; riskLevel: string; }
 export interface ActionView { actionId: string; status: string; policyDecision?: string | null; amountMinor: number; currency: string; providerId?: string | null; referenceId?: string | null; shortUrl?: string | null; providerStatus?: string | null; executionAttempts: number; approvedAt?: string | null; executedAt?: string | null; }
+export interface GovernorView { decisionId: string; allowed: boolean; allowedValueMinor: number; violations: string[]; evaluatedAt: string; }
 export interface RecoveryTruth { stage: "PROPOSED" | "POLICY_APPROVED" | "EXECUTION_REQUESTED" | "PROVIDER_ACCEPTED" | "AWAITING_RECONCILIATION" | "RECOVERED_CONFIRMED" | "FAILED_CONFIRMED" | "EXPIRED"; executionMode: "RAZORPAY_TEST_MODE" | "SIMULATION" | "FAULT_INJECTION" | "SYNTHETIC_BENCHMARK" | "SHADOW_ONLY" | "LEGACY_UNSPECIFIED"; providerAccepted: boolean; awaitingReconciliation: boolean; providerConfirmed: boolean; providerConfirmedAmountMinor: number; basis: string; }
-export interface IncidentDetail { incident: IncidentSummary; findings: Finding[]; plan?: PlanView | null; action?: ActionView | null; truth?: RecoveryTruth | null; }
+export interface IncidentDetail { incident: IncidentSummary; findings: Finding[]; plan?: PlanView | null; action?: ActionView | null; governor?: GovernorView | null; truth?: RecoveryTruth | null; }
 export interface EvidenceCapsule {
   incidentId: string; assembledAt: string;
   webhooks: { eventId: string; eventType: string; verified: boolean; processed: boolean; receivedAt: string; processedAt?: string | null; }[];

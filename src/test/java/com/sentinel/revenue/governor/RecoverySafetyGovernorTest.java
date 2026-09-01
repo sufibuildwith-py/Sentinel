@@ -44,8 +44,8 @@ class RecoverySafetyGovernorTest {
         when(action.getIncidentId()).thenReturn(UUID.randomUUID());
         when(action.getPolicyDecision()).thenReturn(PolicyDecision.AUTO);
         when(action.getExecutionAttempts()).thenReturn(0);
-        when(actions.findAll()).thenReturn(List.of());
-        when(jobs.findAll()).thenReturn(List.of());
+        when(actions.findAllOperational()).thenReturn(List.of());
+        when(jobs.findAllOperational()).thenReturn(List.of());
         when(decisions.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
         RecoverySafetyProperties properties = new RecoverySafetyProperties(1_000_000, 10,
                 100_000, 10, 10, 3, 5, 0.25, 500_000, 2, 2);

@@ -39,7 +39,7 @@ public class RecoverySafetyGovernor {
         if (requestedValueMinor > envelope.maxValuePerIncidentMinor())
             violations.add("MAX_VALUE_PER_INCIDENT actual=" + requestedValueMinor
                     + " limit=" + envelope.maxValuePerIncidentMinor());
-        List<RecoveryAction> allActions = actions.findAll();
+        List<RecoveryAction> allActions = actions.findAllOperational();
         long totalValue = allActions.stream().filter(this::active).mapToLong(RecoveryAction::getAmountMinor).sum();
         if (totalValue + requestedValueMinor > envelope.maxTotalValueMinor())
             violations.add("MAX_TOTAL_VALUE actual=" + (totalValue + requestedValueMinor)
@@ -53,7 +53,7 @@ public class RecoverySafetyGovernor {
             violations.add("MAX_PROVIDER_CALLS_PER_MINUTE actual=" + recentProviderCalls);
         if (action.getExecutionAttempts() >= envelope.maxRetryCount())
             violations.add("MAX_RETRY_COUNT actual=" + action.getExecutionAttempts());
-        List<RecoveryJob> allJobs = jobs.findAll();
+        List<RecoveryJob> allJobs = jobs.findAllOperational();
         long concurrent = allJobs.stream().filter(job -> RecoveryJob.RUNNING.equals(job.getStatus())).count();
         if (concurrent >= envelope.maxConcurrentJobs()) violations.add("MAX_CONCURRENT_JOBS actual=" + concurrent);
         double toolFailureRate = toolFailureRate(allJobs);

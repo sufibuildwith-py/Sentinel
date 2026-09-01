@@ -39,10 +39,12 @@ describe("audit-backed pipeline", () => {
       incident: { incidentId: "1", type: "TEST", status: "MONITORING", severity: "HIGH", amountAtRiskMinor: 100, detectedAt: "2026-08-31T00:00:00Z", affectedPaymentCount: 1, affectedCustomerCount: 1, recoveredAmountMinor: 0 },
       findings: [],
       action: { actionId: "a", status: "EXECUTED", policyDecision: "HUMAN", amountMinor: 100, currency: "INR", executionAttempts: 1, approvedAt: "2026-08-31T00:00:03Z", executedAt: "2026-08-31T00:00:05Z" },
+      governor: { decisionId: "g", allowed: true, allowedValueMinor: 100, violations: [], evaluatedAt: "2026-08-31T00:00:04Z" },
       truth: { stage: "PROVIDER_ACCEPTED", executionMode: "RAZORPAY_TEST_MODE", providerAccepted: true, awaitingReconciliation: true, providerConfirmed: false, providerConfirmedAmountMinor: 0, basis: "Provider accepted; awaiting signed event" },
     };
     const audit = [
       { eventId: "1", timestamp: "2026-08-31T00:00:03Z", actor: "reviewer", stage: "HUMAN_APPROVED", narrative: "Approved", evidence: [], ruleTrace: [] },
+      { eventId: "g", timestamp: "2026-08-31T00:00:04Z", actor: "GOVERNOR", stage: "BLAST_RADIUS_EVALUATED", narrative: "Execution envelope granted", evidence: [], ruleTrace: [], policyResult: "ALLOW" },
       { eventId: "2", timestamp: "2026-08-31T00:00:05Z", actor: "RAZORPAY_TEST", stage: "EXECUTION_SUCCESS", narrative: "Provider resource accepted", evidence: [], ruleTrace: [] },
     ];
     const stages = pipelineStates(detail, audit);

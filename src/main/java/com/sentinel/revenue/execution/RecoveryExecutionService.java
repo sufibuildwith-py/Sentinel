@@ -97,13 +97,20 @@ public class RecoveryExecutionService {
         }
         if (governor != null) {
             GovernorEvaluation evaluation = governor.evaluate(action, plan.getStrategy(), target.getAmountMinor(), now);
-            audit.appendExternal(incident, "GOVERNOR", "BLAST_RADIUS_EVALUATED",
+            audit.append(incident, "GOVERNOR", null, "BLAST_RADIUS_EVALUATED",
                     evaluation.violations().isEmpty() ? List.of("allowedValueMinor=" + evaluation.allowedValueMinor())
-                            : evaluation.violations(),
+                            : evaluation.violations(), null,
                     evaluation.allowed() ? "Execution envelope granted" : "Execution envelope denied",
-                    null, evaluation.allowed() ? "ALLOW" : "DENY");
-            if (!evaluation.allowed()) throw new IllegalStateException(
-                    "Recovery safety governor denied execution: " + String.join(", ", evaluation.violations()));
+                    List.of(), evaluation.allowed() ? "ALLOW" : "DENY", null, null,
+                    evaluation.allowed() ? "Execution may continue" : "No provider call");
+            if (!evaluation.allowed()) {
+                action.stop("GOVERNOR_DENIED");
+                actions.saveAndFlush(action);
+                stopIncident(incident, RevenueIncidentStatus.STOPPED,
+                        "Recovery safety governor denied execution");
+                return response(incidentId, action, false,
+                        "Recovery safety governor denied execution; no provider call was made");
+            }
         }
         String reference = action.getProviderReferenceId() == null
                 ? reference(action.getId()) : action.getProviderReferenceId();

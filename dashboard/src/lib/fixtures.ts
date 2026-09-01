@@ -26,6 +26,7 @@ export const fixtureDetail: IncidentDetail = {
   ],
   plan: { planId: "6e9c37d4-4e35-4222-a165-f025598395e2", strategy: "ALTERNATIVE_PAYMENT_LINK", reason: "Offer a card/netbanking link while UPI is degraded.", targetAmountMinor: 100000, confidence: 0.91, riskLevel: "LOW" },
   action: { actionId: "3a6cff21-d9a8-46e1-a071-c579f328f1c2", status: "EXECUTED", policyDecision: "AUTO", amountMinor: 100000, currency: "INR", providerId: "plink_test_sentinel", referenceId: "sentinel-ref-test", providerStatus: "paid", shortUrl: "https://rzp.io/i/sentinel-test", executionAttempts: 1, approvedAt: fixtureAudit[2].timestamp, executedAt: fixtureAudit[3].timestamp },
+  governor: { decisionId: "fixture-governor", allowed: true, allowedValueMinor: 100000, violations: [], evaluatedAt: fixtureAudit[3].timestamp },
 };
 
 export const fixtureApprovals: Approval[] = [{ actionId: "7866d3a6-66cf-4af6-aa32-ee18332355d4", incidentId: fixtureIncidents[1].incidentId, incidentType: "PROVIDER_OUTAGE", amountMinor: 168500, confidence: 0.71, reason: "Amount exceeds the automatic action threshold.", failedPolicyRules: ["confidence 0.71 is below auto threshold 0.85", "₹1,685.00 exceeds auto threshold ₹1,000.00"] }];

@@ -37,7 +37,8 @@ describe("live recovery session", () => {
     expect(nextRecoveryOperation(held, [])).toBeNull();
     expect(sessionButtonLabel(held, [], false)).toBe("AWAITING HUMAN REVIEW");
     const approved = { ...held, incident: { ...held.incident, status: "APPROVED" as const }, action: { ...held.action, status: "APPROVED", approvedAt: "2026-09-01T00:00:04Z" } };
-    expect(nextRecoveryOperation(approved, [])).toBe("execute");
+    const approvalAudit = [event("4", "HUMAN_APPROVED", "reviewer", "Explicit human approval persisted")];
+    expect(nextRecoveryOperation(approved, approvalAudit)).toBe("execute");
     const denied = { ...held, incident: { ...held.incident, status: "STOPPED" as const }, action: { ...held.action, status: "REJECTED" } };
     expect(nextRecoveryOperation(denied, [])).toBeNull();
   });

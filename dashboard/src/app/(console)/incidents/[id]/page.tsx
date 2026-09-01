@@ -9,8 +9,8 @@ import { motion } from "motion/react";
 import { toast } from "sonner";
 import { api, money, shortId } from "@/lib/api";
 import { mutationErrorMessage } from "@/lib/api-errors";
-import { actionEligibility } from "@/lib/action-eligibility";
-import { pipelineStates } from "@/lib/pipeline";
+import { derivePrimaryRecoveryAction, normalizeRecoveryExecution } from "@/lib/recovery-execution-state";
+import { derivePipelineStages } from "@/lib/pipeline";
 import { isTerminalOrPaused, nextRecoveryOperation, recoveryPollingInterval, sessionButtonLabel } from "@/lib/recovery-session";
 import { useStatusIsland } from "@/components/providers";
 import { ErrorState, PageHeader, StateBadge } from "@/components/dashboard-ui";
@@ -65,12 +65,14 @@ export default function IncidentDetailPage() {
     onSuccess: ({ state, executionResult }) => {
       setActiveSession(recoveryPollingInterval(state.currentDetail, false) !== false);
       const existing = executionResult?.existing === true;
-      emit({ title: state.currentDetail.truth?.providerAccepted ? "Provider action accepted" : "Recovery state advanced", detail: `Incident ${shortId(id)} · persisted events refreshed` });
-      toast.success(existing ? "Action already submitted. No duplicate provider action was sent." : state.currentDetail.truth?.providerAccepted ? "Provider accepted the action. Awaiting signed reconciliation." : "Recovery advanced to its current persisted gate.");
+      const current = derivePrimaryRecoveryAction(normalizeRecoveryExecution(state.currentDetail, state.currentAudit));
+      emit({ title: current.kind === "GOVERNOR_BLOCKED" ? "Governor blocked execution" : state.currentDetail.truth?.providerAccepted ? "Provider action accepted" : "Recovery state advanced", detail: `Incident ${shortId(id)} · persisted events refreshed` });
+      if (current.kind === "GOVERNOR_BLOCKED") toast.error("Recovery held by the persisted governor decision. No provider action was sent.");
+      else toast.success(existing ? "Action already submitted. No duplicate provider action was sent." : state.currentDetail.truth?.providerAccepted ? "Provider accepted the action. Awaiting signed reconciliation." : "Recovery advanced to its current persisted gate.");
     },
     onError: async (error: unknown) => {
-      await invalidate();
-      setActiveSession(recoveryPollingInterval(detail.data, false) !== false);
+      const state = await persistedState();
+      setActiveSession(recoveryPollingInterval(state.currentDetail, false) !== false);
       toast.error(mutationErrorMessage(error, "execute"));
     },
   });
@@ -87,9 +89,10 @@ export default function IncidentDetailPage() {
   if (detail.isLoading) return <div className="space-y-4"><Skeleton className="h-24 rounded-xl" /><Skeleton className="h-64 rounded-xl" /></div>;
   if (detail.error || !detail.data) return <ErrorState error={detail.error ?? new Error("Incident was not found")} retry={() => void detail.refetch()} />;
   const item = detail.data;
-  const eligibility = actionEligibility(item, audit.data ?? []);
-  const canRun = nextRecoveryOperation(item, audit.data ?? []) !== null;
-  const stages = pipelineStates(item, audit.data ?? []);
+  const executionState = normalizeRecoveryExecution(item, audit.data ?? []);
+  const eligibility = derivePrimaryRecoveryAction(executionState);
+  const canRun = eligibility.operation !== null;
+  const stages = derivePipelineStages(executionState);
   const stage = (label: (typeof stages)[number]["label"]) => stages.find((item) => item.label === label)!;
   const ruleTrace = [...new Set((audit.data ?? []).flatMap((entry) => entry.ruleTrace ?? []))];
   const diagnosis = item.findings.find((finding) => finding.source === "ROOT_CAUSE_AGENT");
@@ -113,7 +116,7 @@ export default function IncidentDetailPage() {
     <SectionDivider />
     <section><SectionLabel>Decision evidence capsule</SectionLabel>{capsule.isLoading ? <Skeleton className="h-36 rounded-xl" /> : capsule.data ? <div className="glass-panel rounded-xl p-5"><div className="grid gap-5 sm:grid-cols-3"><DetailValue label="Evidence completeness" value={`${capsule.data.completeness.presentStages} / ${capsule.data.completeness.totalStages} stages`} /><DetailValue label="Provider truth" value={capsule.data.providerTruth.stage.replaceAll("_", " ")} /><DetailValue label="Final outcome" value={capsule.data.finalOutcome.replaceAll("_", " ")} /></div><div className="mt-5 flex flex-wrap gap-2">{capsule.data.agentClaims.map((claim) => <span key={claim.claimId} className={`border px-2 py-1 font-mono text-[9px] tracking-[0.12em] uppercase ${claim.validationStatus === "VALID" ? "border-[#22c55e]/30 text-[#22c55e]" : claim.validationStatus === "DOWNGRADED" ? "border-[#f59e0b]/30 text-[#f59e0b]" : "border-[#ef4444]/30 text-[#ef4444]"}`}>{claim.claimType.replaceAll("_", " ")} · {claim.validationStatus}</span>)}</div>{capsule.data.completeness.missingStages.length > 0 && <p className="mt-5 font-mono text-[10px] leading-5 text-[#444444]">AWAITING: {capsule.data.completeness.missingStages.join(" · ").replaceAll("_", " ")}</p>}<p className="mt-4 text-xs leading-5 text-muted-foreground">Provider payloads, signatures, payment details, and customer identifiers are deliberately excluded.</p></div> : <PendingText>Evidence capsule unavailable</PendingText>}</section>
     <SectionDivider />
-    <section><SectionLabel>Decision certificates</SectionLabel>{certificates.isLoading ? <Skeleton className="h-32 rounded-xl" /> : certificates.data?.length ? <div className="space-y-3">{certificates.data.map((certificate) => <article key={certificate.id} className="glass-panel rounded-xl p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-primary">{certificate.decisionType.replaceAll("_", " ")}</p><p className="mt-2 text-sm font-semibold">{certificate.selectedAction.replaceAll("_", " ")}</p></div><StateBadge value={certificate.authorizationResult} /></div><div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><DetailValue label="Policy" value={certificate.policyVersion} /><DetailValue label="Model" value={certificate.modelVersion} /><DetailValue label="Features" value={certificate.featureSchemaVersion} /><DetailValue label="Strategy" value={certificate.strategyVersion} /></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><DetailValue label="Economic evidence" value={`${certificate.counterfactualMethod.replaceAll("_", " ")} · ${certificate.evidenceQuality.replaceAll("_", " ")}`} /><DetailValue label="Final truth" value={certificate.finalTruthState.replaceAll("_", " ")} /></div><p className="mt-5 break-all font-mono text-[9px] text-[#444444]">CERTIFICATE SHA-256 {certificate.certificateSha256}</p></article>)}</div> : <PendingText>No immutable decision certificate has been issued</PendingText>}</section>
+    <section><SectionLabel>Decision certificates</SectionLabel>{certificates.isLoading ? <Skeleton className="h-32 rounded-xl" /> : certificates.data?.length ? <div className="space-y-3">{certificates.data.map((certificate) => <article key={certificate.id} className="glass-panel rounded-xl p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-primary">{certificate.decisionType.replaceAll("_", " ")}</p><p className="mt-2 text-sm font-semibold">{certificate.selectedAction.replaceAll("_", " ")}</p>{certificate.decisionType.includes("SHADOW") && <p className="mt-2 text-xs text-muted-foreground">Advisory intelligence only · does not grant or remove execution authority</p>}</div><StateBadge value={certificate.authorizationResult} /></div><div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><DetailValue label="Policy" value={certificate.policyVersion} /><DetailValue label="Model" value={certificate.modelVersion} /><DetailValue label="Features" value={certificate.featureSchemaVersion} /><DetailValue label="Strategy" value={certificate.strategyVersion} /></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><DetailValue label="Economic evidence" value={`${certificate.counterfactualMethod.replaceAll("_", " ")} · ${certificate.evidenceQuality.replaceAll("_", " ")}`} /><DetailValue label="Final truth" value={certificate.finalTruthState.replaceAll("_", " ")} /></div><p className="mt-5 break-all font-mono text-[9px] text-[#444444]">CERTIFICATE SHA-256 {certificate.certificateSha256}</p></article>)}</div> : <PendingText>No immutable decision certificate has been issued</PendingText>}</section>
     <SectionDivider />
     <section><SectionLabel>Agent diagnosis</SectionLabel>{diagnosis ? <div className="glass-panel rounded-xl p-5"><p className="text-base font-medium leading-7 text-slate-900">{diagnosis.summary}</p>{diagnosis.confidence != null && <ConfidenceBar value={diagnosis.confidence} />}</div> : <StagePanel stage={stage("Diagnose")} waiting="Waiting for diagnosis" active="Diagnosis running" />}</section>
     <SectionDivider />
@@ -142,7 +145,7 @@ function SectionDivider() { return <div className="my-8 h-px w-full bg-slate-200
 
 function PendingText({ children }: { children: string }) { return <p className="py-4 font-mono text-xs tracking-[0.16em] text-[#444444] uppercase">{children}</p>; }
 
-function StagePanel({ stage, waiting, active }: { stage: ReturnType<typeof pipelineStates>[number]; waiting: string; active: string }) {
+function StagePanel({ stage, waiting, active }: { stage: ReturnType<typeof derivePipelineStages>[number]; waiting: string; active: string }) {
   const label = stage.state === "ACTIVE" ? active : ["BLOCKED", "FAILED", "HELD"].includes(stage.state) ? stage.evidence : waiting;
   return <div className="glass-panel rounded-xl p-5"><div className="flex items-center gap-2"><StateBadge value={stage.state.replaceAll("_", " ")} />{stage.timestamp && <time className="font-mono text-[9px] text-slate-400">{new Date(stage.timestamp).toLocaleString()}</time>}</div><p className="mt-3 font-mono text-xs tracking-[.1em] text-[#444444] uppercase">{label}</p></div>;
 }

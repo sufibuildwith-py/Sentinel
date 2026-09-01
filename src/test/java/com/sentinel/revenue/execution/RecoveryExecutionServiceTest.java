@@ -2,6 +2,9 @@ package com.sentinel.revenue.execution;
 
 import com.sentinel.revenue.audit.AuditLogService;
 import com.sentinel.revenue.detection.RuleOutcome;
+import com.sentinel.revenue.governor.ExecutionEnvelope;
+import com.sentinel.revenue.governor.GovernorEvaluation;
+import com.sentinel.revenue.governor.RecoverySafetyGovernor;
 import com.sentinel.revenue.model.*;
 import com.sentinel.revenue.policy.PolicyEvaluation;
 import com.sentinel.revenue.policy.PolicyRuleResult;
@@ -46,9 +49,51 @@ class RecoveryExecutionServiceTest {
     @Test void approvedHumanActionCanExecute() {
         Fixture f = fixture(PolicyDecision.HUMAN, RecoveryActionStatus.APPROVED,
                 RecoveryStrategy.ALTERNATIVE_PAYMENT_LINK, "FAILED", Instant.now());
-        when(f.gateway.findPaymentLinkByReference(anyString())).thenReturn(Optional.of(link("plink_human")));
+        when(f.gateway.findPaymentLinkByReference(anyString())).thenReturn(Optional.empty());
+        when(f.gateway.createPaymentLink(any())).thenReturn(link("plink_human"));
         assertThat(f.service.execute(f.incidentId).providerId()).isEqualTo("plink_human");
-        verify(f.gateway, never()).createPaymentLink(any());
+        verify(f.governor).evaluate(eq(f.action), eq(RecoveryStrategy.ALTERNATIVE_PAYMENT_LINK), eq(12_345L), any());
+        verify(f.gateway, times(1)).createPaymentLink(any());
+    }
+
+    @Test void shadowAndOpportunitySubsystemsCannotOverrideAuthoritativeExecutionGates() {
+        assertThat(List.of(RecoveryExecutionService.class.getDeclaredFields()))
+                .extracting(field -> field.getType().getPackageName())
+                .noneMatch(packageName -> packageName.contains(".opportunity")
+                        || packageName.contains(".replay") || packageName.contains(".economics"));
+
+        Fixture allowed = fixture(PolicyDecision.AUTO, RecoveryActionStatus.AUTO_APPROVED,
+                RecoveryStrategy.ALTERNATIVE_PAYMENT_LINK, "FAILED", Instant.now());
+        when(allowed.gateway.findPaymentLinkByReference(anyString())).thenReturn(Optional.empty());
+        when(allowed.gateway.createPaymentLink(any())).thenReturn(link("plink_authoritative"));
+        assertThat(allowed.service.execute(allowed.incidentId).providerId()).isEqualTo("plink_authoritative");
+        verify(allowed.gateway, times(1)).createPaymentLink(any());
+
+        Fixture denied = fixture(PolicyDecision.AUTO, RecoveryActionStatus.AUTO_APPROVED,
+                RecoveryStrategy.ALTERNATIVE_PAYMENT_LINK, "FAILED", Instant.now());
+        when(denied.governor.evaluate(any(), any(), anyLong(), any())).thenReturn(
+                new GovernorEvaluation(UUID.randomUUID(), false, 0, envelope(), List.of("KILL_SWITCH")));
+        assertThat(denied.service.execute(denied.incidentId).actionStatus()).isEqualTo(RecoveryActionStatus.STOPPED);
+        verifyNoInteractions(denied.gateway);
+    }
+
+    @Test void governorDenialIsPersistedAndReturnsWithoutCallingProvider() {
+        Fixture denied = fixture(PolicyDecision.HUMAN, RecoveryActionStatus.APPROVED,
+                RecoveryStrategy.ALTERNATIVE_PAYMENT_LINK, "FAILED", Instant.now());
+        when(denied.governor.evaluate(any(), any(), anyLong(), any())).thenReturn(
+                new GovernorEvaluation(UUID.randomUUID(), false, 0, envelope(),
+                        List.of("MAX_UNRECONCILED_VALUE actual=50000")));
+
+        RecoveryExecutionResponse response = denied.service.execute(denied.incidentId);
+
+        assertThat(response.actionStatus()).isEqualTo(RecoveryActionStatus.STOPPED);
+        assertThat(response.message()).contains("governor denied").contains("no provider call");
+        assertThat(denied.action.getStatus()).isEqualTo(RecoveryActionStatus.STOPPED);
+        verifyNoInteractions(denied.gateway);
+        verify(denied.audit).append(eq(denied.incident), eq("GOVERNOR"), isNull(),
+                eq("BLAST_RADIUS_EVALUATED"), anyList(), isNull(),
+                eq("Execution envelope denied"), eq(List.of()), eq("DENY"),
+                isNull(), isNull(), eq("No provider call"));
     }
 
     @Test void ambiguousCreateReconcilesWithoutSecondCreate() {
@@ -115,6 +160,7 @@ class RecoveryExecutionServiceTest {
         PaymentEventRepository payments = mock(PaymentEventRepository.class);
         RazorpayGateway gateway = mock(RazorpayGateway.class);
         AuditLogService audit = mock(AuditLogService.class);
+        RecoverySafetyGovernor governor = mock(RecoverySafetyGovernor.class);
         UUID incidentId = UUID.randomUUID();
         RevenueIncident incident = new RevenueIncident("UPI_DEGRADATION", RevenueIncidentStatus.APPROVED,
                 "LOW", 50_000, Instant.now(), List.of("local_failed_1", "outside_2"),
@@ -139,8 +185,11 @@ class RecoveryExecutionServiceTest {
         when(incidents.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
         when(payments.findAllByPaymentIdIn(any())).thenReturn(List.of(payment));
         RazorpayProperties properties = properties();
+        when(governor.evaluate(any(), any(), anyLong(), any())).thenReturn(
+                new GovernorEvaluation(UUID.randomUUID(), true, 50_000, envelope(), List.of()));
         return new Fixture(new RecoveryExecutionService(actions, plans, incidents, payments,
-                gateway, properties, audit), incidentId, action, gateway, payments);
+                gateway, properties, audit, governor), incidentId, incident, action, gateway,
+                payments, audit, governor);
     }
 
     private RazorpayProperties properties() {
@@ -149,7 +198,12 @@ class RecoveryExecutionServiceTest {
                 3, 50, 2, 4, Duration.ofSeconds(30), false);
     }
     private PaymentLinkResource link(String id) { return new PaymentLinkResource(id, "sntl_ref", "https://rzp.io/i/test", "created"); }
+    private ExecutionEnvelope envelope() {
+        return new ExecutionEnvelope(1_000_000, 10, 100_000, 10, 10, 3, 4, 0.5, 500_000);
+    }
     private record Fixture(RecoveryExecutionService service, UUID incidentId,
+                           RevenueIncident incident,
                            RecoveryAction action, RazorpayGateway gateway,
-                           PaymentEventRepository payments) { }
+                           PaymentEventRepository payments, AuditLogService audit,
+                           RecoverySafetyGovernor governor) { }
 }

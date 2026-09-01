@@ -14,6 +14,13 @@ import java.util.UUID;
 import java.util.Collection;
 
 public interface RecoveryJobRepository extends JpaRepository<RecoveryJob, UUID> {
+    @Query("""
+            select job from RecoveryJob job
+            where exists (select incident.incidentId from RevenueIncident incident
+                          where incident.incidentId = job.incidentId and incident.resetAt is null)
+            """)
+    List<RecoveryJob> findAllOperational();
+
     List<RecoveryJob> findByStatusAndNextAttemptAtBefore(String status, Instant now);
     Optional<RecoveryJob> findByIncidentId(UUID incidentId);
     Optional<RecoveryJob> findFirstByIncidentIdAndStrategyAndStatusInOrderByCreatedAtDesc(
