@@ -61,11 +61,17 @@ public class DemoRevenueService {
 
     @Transactional
     public DemoInjectionResponse injectScenario(SyntheticPaymentDatasetGenerator.Scenario scenario) {
+        return injectScenario(scenario, "demo");
+    }
+
+    @Transactional
+    public DemoInjectionResponse injectScenario(SyntheticPaymentDatasetGenerator.Scenario scenario,
+                                                String namespace) {
         Set<UUID> existingIncidentIds = new HashSet<>();
         incidents.findAll().forEach(incident -> existingIncidentIds.add(incident.getIncidentId()));
 
         BatchIngestionSummary ingestion = ingestionService.ingest(
-                new SyntheticPaymentDatasetGenerator().generateScenario(scenario));
+                new SyntheticPaymentDatasetGenerator().generateScenario(scenario, namespace));
         List<DemoIncidentSummary> created = incidents.findAll().stream()
                 .filter(incident -> !existingIncidentIds.contains(incident.getIncidentId()))
                 .map(this::summary)

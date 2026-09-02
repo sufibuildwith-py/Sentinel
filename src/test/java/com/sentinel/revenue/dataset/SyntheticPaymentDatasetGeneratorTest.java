@@ -42,4 +42,20 @@ class SyntheticPaymentDatasetGeneratorTest {
                 .count();
         assertThat(distinctIdempotencyKeys).isEqualTo(285);
     }
+
+    @Test
+    void namespacesKeepWorkloadCasesDistinct() {
+        PaymentEventBatchRequest first = new SyntheticPaymentDatasetGenerator()
+                .generateScenario(SyntheticPaymentDatasetGenerator.Scenario.UPI_DEGRADATION, "workload-01");
+        PaymentEventBatchRequest second = new SyntheticPaymentDatasetGenerator()
+                .generateScenario(SyntheticPaymentDatasetGenerator.Scenario.UPI_DEGRADATION, "workload-02");
+
+        assertThat(first.events()).allSatisfy(event ->
+                assertThat(event.metadata()).containsEntry("merchantId", "merchant_workload-01"));
+        assertThat(second.events()).allSatisfy(event ->
+                assertThat(event.metadata()).containsEntry("merchantId", "merchant_workload-02"));
+        assertThat(first.events().stream().map(PaymentEventRequest::paymentId))
+                .doesNotContainAnyElementsOf(second.events().stream()
+                        .map(PaymentEventRequest::paymentId).toList());
+    }
 }

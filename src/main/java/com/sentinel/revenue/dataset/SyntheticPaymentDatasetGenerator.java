@@ -46,18 +46,29 @@ public final class SyntheticPaymentDatasetGenerator {
     }
 
     public PaymentEventBatchRequest generateScenario(Scenario scenario) {
+        return generateScenario(scenario, "demo");
+    }
+
+    /**
+     * Generates the same deterministic scenario under an isolated workload namespace.
+     * Namespacing keeps the production demo portfolio incident-scoped while preserving
+     * the exact detection and ingestion path used by the interactive Failure Lab.
+     */
+    public PaymentEventBatchRequest generateScenario(Scenario scenario, String namespace) {
         List<PaymentEventRequest> events = new ArrayList<>(EVENTS_PER_SCENARIO);
         int sequenceStart = scenario.ordinal() * EVENTS_PER_SCENARIO;
         for (int scenarioIndex = 0; scenarioIndex < EVENTS_PER_SCENARIO; scenarioIndex++) {
-            events.add(eventFor(scenario, scenarioIndex, sequenceStart + scenarioIndex));
+            events.add(eventFor(scenario, scenarioIndex, sequenceStart + scenarioIndex, namespace));
         }
         return new PaymentEventBatchRequest(events);
     }
 
-    private PaymentEventRequest eventFor(Scenario scenario, int scenarioIndex, int sequence) {
+    private PaymentEventRequest eventFor(Scenario scenario, int scenarioIndex, int sequence,
+                                        String namespace) {
+        String safeNamespace = namespace == null || namespace.isBlank() ? "demo" : namespace;
         String paymentId = scenario == Scenario.DUPLICATE
-                ? "pay_duplicate_" + String.format("%03d", scenarioIndex / 2)
-                : "pay_" + scenario.name().toLowerCase(Locale.ROOT) + "_"
+                ? "pay_" + safeNamespace + "_duplicate_" + String.format("%03d", scenarioIndex / 2)
+                : "pay_" + safeNamespace + "_" + scenario.name().toLowerCase(Locale.ROOT) + "_"
                         + String.format("%03d", scenarioIndex);
         String method = methodFor(scenario, scenarioIndex);
         String status = statusFor(scenario, scenarioIndex);
@@ -71,7 +82,8 @@ public final class SyntheticPaymentDatasetGenerator {
         metadata.put("groundTruthLabel", scenario.name());
         metadata.put("expectedAnomaly", scenario.expectedAnomaly);
         metadata.put("datasetSeed", SEED);
-        metadata.put("merchantId", "merchant_demo");
+        metadata.put("merchantId", "merchant_" + safeNamespace);
+        metadata.put("workloadNamespace", safeNamespace);
         if (scenario == Scenario.ALREADY_PAID) {
             metadata.put("alreadyPaid", true);
         }
@@ -84,7 +96,7 @@ public final class SyntheticPaymentDatasetGenerator {
 
         return new PaymentEventRequest(
                 paymentId,
-                "order_" + String.format("%06d", sequence),
+                "order_" + safeNamespace + "_" + String.format("%06d", sequence),
                 faker.regexify("customer_[0-9]{6}"),
                 amountMinor,
                 "INR",
