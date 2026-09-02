@@ -58,4 +58,24 @@ class SyntheticPaymentDatasetGeneratorTest {
                 .doesNotContainAnyElementsOf(second.events().stream()
                         .map(PaymentEventRequest::paymentId).toList());
     }
+
+    @Test
+    void operationalProfilesRemainDistinctAndDetectionReady() {
+        PaymentEventBatchRequest upi = new SyntheticPaymentDatasetGenerator()
+                .generateOperationalIncident("workload-01", "UPI", "HDFC",
+                        "UPI_ISSUER_UNAVAILABLE", 47_512);
+        PaymentEventBatchRequest timeout = new SyntheticPaymentDatasetGenerator()
+                .generateOperationalIncident("workload-02", "CARD", "RAZORPAY_GATEWAY",
+                        "PAYMENT_TIMED_OUT", 38_900);
+
+        assertThat(upi.events()).hasSize(30).allSatisfy(event -> {
+            assertThat(event.status()).isEqualTo("FAILED");
+            assertThat(event.metadata()).containsEntry("expectedAnomaly", true);
+        });
+        assertThat(timeout.events()).allSatisfy(event ->
+                assertThat(event.metadata()).containsEntry("merchantId", "merchant_workload-02"));
+        assertThat(upi.events().get(0).amountMinor()).isNotEqualTo(timeout.events().get(0).amountMinor());
+        assertThat(upi.events().get(0).metadata().get("groundTruthLabel"))
+                .isNotEqualTo(timeout.events().get(0).metadata().get("groundTruthLabel"));
+    }
 }

@@ -1,6 +1,5 @@
 package com.sentinel.revenue.service;
 
-import com.sentinel.revenue.dataset.SyntheticPaymentDatasetGenerator;
 import com.sentinel.revenue.repository.PaymentEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,11 +41,22 @@ public class DemoWorkloadSeeder {
             log.debug("Synthetic Test Mode workload already present; skipping seed");
             return;
         }
+        String[][] profiles = {
+                {"UPI DEGRADATION", "UPI", "HDFC", "UPI_ISSUER_UNAVAILABLE", "47512"},
+                {"GATEWAY TIMEOUT", "CARD", "RAZORPAY_GATEWAY", "PAYMENT_TIMED_OUT", "38900"},
+                {"INSUFFICIENT FUNDS", "CARD", "ICICI", "INSUFFICIENT_FUNDS", "27850"},
+                {"PAYMENT DECLINED", "CARD", "SBI", "PAYMENT_DECLINED", "19600"},
+                {"NETWORK ERROR", "NETBANKING", "AXIS", "NETWORK_ERROR", "32400"},
+                {"API FAILURE", "WALLET", "RAZORPAY_GATEWAY", "RAZORPAY_API_FAILURE", "22100"},
+                {"BAD REQUEST", "CARD", "KOTAK", "BAD_REQUEST_ERROR", "15800"},
+                {"RAIL DEGRADED", "UPI", "ICICI", "PAYMENT_RAIL_DEGRADED", "41200"},
+                {"RISK REVIEW", "CARD", "HDFC", "RISK_REVIEW_REQUIRED", "68500"},
+                {"PROVIDER OUTAGE", "NETBANKING", "RAZORPAY_GATEWAY", "PROVIDER_UNAVAILABLE", "53600"}
+        };
         for (int index = 0; index < WORKLOAD_CASES; index++) {
-            SyntheticPaymentDatasetGenerator.Scenario scenario = index % 2 == 0
-                    ? SyntheticPaymentDatasetGenerator.Scenario.UPI_DEGRADATION
-                    : SyntheticPaymentDatasetGenerator.Scenario.PROVIDER_OUTAGE;
-            demoRevenueService.injectScenario(scenario, "workload-%02d".formatted(index + 1));
+            String[] profile = profiles[index];
+            demoRevenueService.injectOperationalIncident("workload-%02d".formatted(index + 1),
+                    profile[1], profile[2], profile[3], Long.parseLong(profile[4]));
         }
         log.info("Preloaded {} isolated synthetic Test Mode recovery cases", WORKLOAD_CASES);
     }

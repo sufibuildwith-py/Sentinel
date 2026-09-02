@@ -63,6 +63,30 @@ public final class SyntheticPaymentDatasetGenerator {
         return new PaymentEventBatchRequest(events);
     }
 
+    /** A deterministic, all-failed cohort used for distinct operational demo incidents. */
+    public PaymentEventBatchRequest generateOperationalIncident(String namespace, String method,
+                                                                String issuer, String errorCode,
+                                                                long amountMinor) {
+        String safeNamespace = namespace == null || namespace.isBlank() ? "demo" : namespace;
+        List<PaymentEventRequest> events = new ArrayList<>(EVENTS_PER_SCENARIO);
+        for (int index = 0; index < EVENTS_PER_SCENARIO; index++) {
+            Map<String, Object> metadata = new LinkedHashMap<>();
+            metadata.put("synthetic", true);
+            metadata.put("groundTruthLabel", errorCode);
+            metadata.put("expectedAnomaly", true);
+            metadata.put("datasetSeed", SEED);
+            metadata.put("merchantId", "merchant_" + safeNamespace);
+            metadata.put("workloadNamespace", safeNamespace);
+            events.add(new PaymentEventRequest(
+                    "pay_" + safeNamespace + "_" + String.format("%03d", index),
+                    "order_" + safeNamespace + "_" + String.format("%03d", index),
+                    faker.regexify("customer_[0-9]{6}"), amountMinor, "INR", method, issuer,
+                    "FAILED", errorCode, errorDescription(errorCode),
+                    BASE_TIME.plus(index, ChronoUnit.MINUTES), 1, null, 0, null, metadata));
+        }
+        return new PaymentEventBatchRequest(events);
+    }
+
     private PaymentEventRequest eventFor(Scenario scenario, int scenarioIndex, int sequence,
                                         String namespace) {
         String safeNamespace = namespace == null || namespace.isBlank() ? "demo" : namespace;

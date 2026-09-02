@@ -79,6 +79,21 @@ public class DemoRevenueService {
         return new DemoInjectionResponse(ingestion, created.size(), created);
     }
 
+    @Transactional
+    public DemoInjectionResponse injectOperationalIncident(String namespace, String method,
+                                                           String issuer, String errorCode,
+                                                           long amountMinor) {
+        Set<UUID> existingIncidentIds = incidents.findAll().stream()
+                .map(RevenueIncident::getIncidentId).collect(java.util.stream.Collectors.toSet());
+        BatchIngestionSummary ingestion = ingestionService.ingest(
+                new SyntheticPaymentDatasetGenerator().generateOperationalIncident(
+                        namespace, method, issuer, errorCode, amountMinor));
+        List<DemoIncidentSummary> created = incidents.findAll().stream()
+                .filter(incident -> !existingIncidentIds.contains(incident.getIncidentId()))
+                .map(this::summary).toList();
+        return new DemoInjectionResponse(ingestion, created.size(), created);
+    }
+
     private DemoIncidentSummary summary(RevenueIncident incident) {
         return new DemoIncidentSummary(
                 incident.getIncidentId(),
