@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
+import static com.github.tomakehurst.wiremock.client.WireMock.matching;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
@@ -70,6 +71,7 @@ class RazorpayAdapterWireMockTest {
 
         server.verify(1, postRequestedFor(urlEqualTo("/v1/payment_links"))
                 .withRequestBody(matchingJsonPath("$.amount", equalTo("4299")))
+                .withRequestBody(matchingJsonPath("$.expire_by", matching("[0-9]+")))
                 .withRequestBody(matchingJsonPath("$.notes.sentinel_incident",
                         equalTo(incidentId.toString()))));
         verify(repository).saveAndFlush(any(ProviderOrder.class));

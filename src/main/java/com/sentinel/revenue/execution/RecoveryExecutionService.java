@@ -231,7 +231,7 @@ public class RecoveryExecutionService {
                                               RazorpayFailure failure, boolean uncertain) {
         action.retryPending(failure.safeCode(), uncertain); actions.saveAndFlush(action);
         audit.appendExternal(incident, "RAZORPAY_TEST", uncertain ? "EXECUTION_UNCERTAIN" : "RETRY_PENDING",
-                List.of("safeError=" + failure.safeCode()), "No blind create retry",
+                List.of("safeError=" + failure.safeReason()), "No blind create retry",
                 null, "TEST");
         return response(incident.getIncidentId(), action, false, "Provider unavailable; safe reconciliation required");
     }
@@ -245,7 +245,7 @@ public class RecoveryExecutionService {
         action.executionFailed(failure.safeCode()); actions.saveAndFlush(action);
         if (incident.getStatus() == RevenueIncidentStatus.EXECUTING)
             transition(incident, RevenueIncidentStatus.FAILED, "Non-retryable provider rejection");
-        audit.appendExternal(incident, "RAZORPAY_TEST", "EXECUTION_FAILED", List.of("safeError=" + failure.safeCode()),
+        audit.appendExternal(incident, "RAZORPAY_TEST", "EXECUTION_FAILED", List.of("safeError=" + failure.safeReason()),
                 "Provider request rejected", null, "TEST");
         return response(incident.getIncidentId(), action, false, "Test Mode execution rejected");
     }

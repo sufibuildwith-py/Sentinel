@@ -123,9 +123,10 @@ public class RazorpayHttpGateway implements RazorpayGateway {
         try {
             HttpResponse<String> response = client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 200 && response.statusCode() < 300) return parse(response.body());
+            ProviderError providerError = providerError(response.statusCode(), response.body());
             if (response.statusCode() == 429 || response.statusCode() >= 500)
-                throw new RazorpayFailure(RazorpayFailure.Kind.AMBIGUOUS, "HTTP_" + response.statusCode());
-            throw new RazorpayFailure(RazorpayFailure.Kind.NON_RETRYABLE, "HTTP_" + response.statusCode());
+                throw new RazorpayFailure(RazorpayFailure.Kind.AMBIGUOUS, providerError);
+            throw new RazorpayFailure(RazorpayFailure.Kind.NON_RETRYABLE, providerError);
         } catch (java.net.http.HttpTimeoutException timeout) {
             throw new RazorpayFailure(RazorpayFailure.Kind.AMBIGUOUS, "TIMEOUT", timeout);
         } catch (InterruptedException interrupted) {
@@ -140,6 +141,14 @@ public class RazorpayHttpGateway implements RazorpayGateway {
         try { return json.readTree(body); }
         catch (JsonProcessingException malformed) {
             throw new RazorpayFailure(RazorpayFailure.Kind.MALFORMED, "MALFORMED_RESPONSE", malformed);
+        }
+    }
+
+    private ProviderError providerError(int status, String responseBody) {
+        try {
+            return ProviderError.from(status, json.readTree(responseBody));
+        } catch (JsonProcessingException ignored) {
+            return new ProviderError(status, "HTTP_" + status, null, null, null, null, null);
         }
     }
     private PaymentLinkResource link(JsonNode node) {

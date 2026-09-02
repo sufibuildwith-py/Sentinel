@@ -103,6 +103,7 @@ public class RazorpayAdapter {
                 .put("accept_partial", false)
                 .put("reference_id", reference(idempotencyKey))
                 .put("description", description)
+                .put("expire_by", Instant.now().plus(properties.linkExpiry()).getEpochSecond())
                 .put("reminder_enable", false)
                 .put("notify", new JSONObject().put("sms", false).put("email", false))
                 .put("notes", new JSONObject().put("sentinel_incident", incidentId.toString()));
@@ -183,8 +184,10 @@ public class RazorpayAdapter {
     }
 
     private RazorpayFailure providerFailure(RazorpayException failure) {
-        String code = failure.getMessage() == null ? "SDK_FAILURE" : "SDK_FAILURE";
-        return new RazorpayFailure(RazorpayFailure.Kind.TEMPORARY, code, failure);
+        ProviderError error = ProviderError.fromMessage(json, failure.getMessage());
+        RazorpayFailure.Kind kind = error.httpStatus() >= 500 || error.httpStatus() == 429
+                ? RazorpayFailure.Kind.TEMPORARY : RazorpayFailure.Kind.NON_RETRYABLE;
+        return new RazorpayFailure(kind, error);
     }
 
     private JSONObject exchange(String method, String path, JSONObject body) {
@@ -203,7 +206,7 @@ public class RazorpayAdapter {
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 RazorpayFailure.Kind kind = response.statusCode() >= 500 || response.statusCode() == 429
                         ? RazorpayFailure.Kind.TEMPORARY : RazorpayFailure.Kind.NON_RETRYABLE;
-                throw new RazorpayFailure(kind, "HTTP_" + response.statusCode());
+                throw new RazorpayFailure(kind, providerError(response.statusCode(), response.body()));
             }
             JsonNode parsed = json.readTree(response.body());
             return new JSONObject(parsed.toString());
@@ -214,6 +217,14 @@ public class RazorpayAdapter {
             throw new RazorpayFailure(RazorpayFailure.Kind.TEMPORARY, "INTERRUPTED", interrupted);
         } catch (IOException failure) {
             throw new RazorpayFailure(RazorpayFailure.Kind.TEMPORARY, "IO_FAILURE", failure);
+        }
+    }
+
+    private ProviderError providerError(int status, String responseBody) {
+        try {
+            return ProviderError.from(status, json.readTree(responseBody));
+        } catch (IOException ignored) {
+            return new ProviderError(status, "HTTP_" + status, null, null, null, null, null);
         }
     }
 

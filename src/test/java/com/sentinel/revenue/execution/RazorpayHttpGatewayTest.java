@@ -37,7 +37,31 @@ class RazorpayHttpGatewayTest {
                 .withRequestBody(matchingJsonPath("$.options.checkout.method.upi", equalTo("0")))
                 .withRequestBody(matchingJsonPath("$.options.checkout.method.card", equalTo("1")))
                 .withRequestBody(matchingJsonPath("$.options.checkout.method.netbanking", equalTo("1")))
+                .withRequestBody(matchingJsonPath("$.expire_by", matching("[0-9]+")))
                 .withRequestBody(notMatching(".*secret-value.*")));
+    }
+
+    @Test void structured400IsSanitizedAndNonRetryable() {
+        server.stubFor(post(urlEqualTo("/v1/payment_links")).willReturn(aResponse().withStatus(400)
+                .withBody("""
+                        {"error":{"code":"BAD_REQUEST_ERROR","field":"expire_by",
+                        "description":"expire_by must be within six months","source":"business",
+                        "step":"payment_initiation","reason":"invalid_expiry","secret":"do-not-leak"}}
+                        """)));
+
+        RazorpayFailure failure = catchThrowableOfType(
+                () -> gateway(3, Duration.ofSeconds(1), 3).createPaymentLink(command()), RazorpayFailure.class);
+
+        assertThat(failure.kind()).isEqualTo(RazorpayFailure.Kind.NON_RETRYABLE);
+        assertThat(failure.safeCode()).isEqualTo("BAD_REQUEST_ERROR");
+        assertThat(failure.providerError()).satisfies(error -> {
+            assertThat(error.httpStatus()).isEqualTo(400);
+            assertThat(error.field()).isEqualTo("expire_by");
+            assertThat(error.description()).contains("six months");
+            assertThat(error.safeSummary()).doesNotContain("do-not-leak");
+        });
+        assertThat(failure.getMessage()).doesNotContain("do-not-leak");
+        server.verify(1, postRequestedFor(urlEqualTo("/v1/payment_links")));
     }
 
     @Test void safeReadRetries429ButCreate400IsNotRetriedAndErrorsAreSanitized() {
