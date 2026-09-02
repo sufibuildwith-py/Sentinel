@@ -107,6 +107,20 @@ class RecoveryExecutionServiceTest {
         verify(f.gateway, times(1)).createPaymentLink(any());
     }
 
+    @Test void nonRetryableReferenceLookupFailsSafelyInsteadOfLoopingRetryPending() {
+        Fixture f = fixture(PolicyDecision.AUTO, RecoveryActionStatus.AUTO_APPROVED,
+                RecoveryStrategy.ALTERNATIVE_PAYMENT_LINK, "FAILED", Instant.now());
+        when(f.gateway.findPaymentLinkByReference(anyString())).thenThrow(
+                new RazorpayFailure(RazorpayFailure.Kind.NON_RETRYABLE, "HTTP_400"));
+
+        RecoveryExecutionResponse response = f.service.execute(f.incidentId);
+
+        assertThat(response.actionStatus()).isEqualTo(RecoveryActionStatus.FAILED);
+        assertThat(f.action.getStatus()).isEqualTo(RecoveryActionStatus.FAILED);
+        assertThat(f.incident.getStatus()).isEqualTo(RevenueIncidentStatus.FAILED);
+        verify(f.gateway, never()).createPaymentLink(any());
+    }
+
     @Test void paidExpiredWrongStrategyAndUngatedActionsNeverCallProvider() {
         Fixture paid = fixture(PolicyDecision.AUTO, RecoveryActionStatus.AUTO_APPROVED,
                 RecoveryStrategy.ALTERNATIVE_PAYMENT_LINK, "CAPTURED", Instant.now());

@@ -77,18 +77,7 @@ public class RecoveryExecutionService {
 
         if (action.getStatus() == RecoveryActionStatus.EXECUTED && action.getExternalResourceId() != null)
             return response(incidentId, action, true, "Existing Test Mode link returned");
-        RecoveryExecutionEligibility currentEligibility = eligibility.evaluate(action, plan, null);
-        if (!currentEligibility.eligible()) throw new RecoveryExecutionUnavailableException(currentEligibility);
-
         Instant now = Instant.now();
-        if (now.isAfter(action.getCreatedAt().plus(properties.actionExpiry()))) {
-            action.stop("ACTION_EXPIRED");
-            actions.saveAndFlush(action);
-            stopIncident(incident, RevenueIncidentStatus.STOPPED, "Execution window expired");
-            audit.appendExternal(incident, "EXECUTOR", "EXECUTION_STOPPED", List.of("actionExpired=true"),
-                    "No provider call", null, "ACTION_EXPIRED");
-            return response(incidentId, action, false, "Action expired before execution");
-        }
         if (action.getExecutionAttempts() >= properties.maximumAttempts()) {
             action.stop("MAX_EXECUTION_ATTEMPTS"); actions.saveAndFlush(action);
             stopIncident(incident, RevenueIncidentStatus.STOPPED, "Maximum execution attempts reached");
@@ -98,7 +87,17 @@ public class RecoveryExecutionService {
                     "No provider call", null, "MAX_EXECUTION_ATTEMPTS");
             return response(incidentId, action, false, "Maximum execution attempts reached");
         }
+        RecoveryExecutionEligibility currentEligibility = eligibility.evaluate(action, plan, null);
+        if (!currentEligibility.eligible()) throw new RecoveryExecutionUnavailableException(currentEligibility);
 
+        if (now.isAfter(action.getCreatedAt().plus(properties.actionExpiry()))) {
+            action.stop("ACTION_EXPIRED");
+            actions.saveAndFlush(action);
+            stopIncident(incident, RevenueIncidentStatus.STOPPED, "Execution window expired");
+            audit.appendExternal(incident, "EXECUTOR", "EXECUTION_STOPPED", List.of("actionExpired=true"),
+                    "No provider call", null, "ACTION_EXPIRED");
+            return response(incidentId, action, false, "Action expired before execution");
+        }
         PaymentEvent target = selectTarget(incident);
         if (PAID.contains(target.getStatus().toUpperCase(Locale.ROOT))) {
             action.stop("PAYMENT_ALREADY_PAID"); actions.saveAndFlush(action);
@@ -171,6 +170,10 @@ public class RecoveryExecutionService {
                 return fail(incident, action, createFailure);
             }
         } catch (RazorpayFailure failure) {
+            if (failure.kind() == RazorpayFailure.Kind.NON_RETRYABLE
+                    || failure.kind() == RazorpayFailure.Kind.MALFORMED) {
+                return fail(incident, action, failure);
+            }
             return pending(incident, action, failure, isUncertain(failure));
         }
     }

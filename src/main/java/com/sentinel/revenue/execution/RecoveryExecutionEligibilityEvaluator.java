@@ -35,6 +35,9 @@ public class RecoveryExecutionEligibilityEvaluator {
         if (governor != null && !governor.isAllowed()) {
             return denied("GOVERNOR_DENIED", "The persisted recovery governor decision blocks execution");
         }
+        if (properties.maximumAttempts() > 0 && action.getExecutionAttempts() >= properties.maximumAttempts()) {
+            return denied("MAX_EXECUTION_ATTEMPTS", "The maximum number of provider execution attempts has been reached");
+        }
         if (plan.getStrategy() != RecoveryStrategy.ALTERNATIVE_PAYMENT_LINK) {
             return denied("UNSUPPORTED_RECOVERY_STRATEGY",
                     "Only ALTERNATIVE_PAYMENT_LINK is executable through the Test Mode provider path");

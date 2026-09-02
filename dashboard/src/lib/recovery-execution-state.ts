@@ -133,6 +133,9 @@ export function derivePrimaryRecoveryAction(state: RecoveryExecutionState): Prim
     if (detail.executionAvailability.reasonCode === "ACTION_ALREADY_SUBMITTED") {
       return result("SUBMITTED", "Action submitted", detail.executionAvailability.reason);
     }
+    if (detail.executionAvailability.reasonCode === "MAX_EXECUTION_ATTEMPTS") {
+      return result("NOT_READY", "Execution attempts exhausted", detail.executionAvailability.reason);
+    }
   }
   if (detail.plan.strategy !== "ALTERNATIVE_PAYMENT_LINK") return result("UNSUPPORTED", "Provider action unavailable", `${detail.plan.strategy.replaceAll("_", " ")} is not executable as a Payment Link.`);
   if (state.action.executionPermission && !state.action.claimed && !state.provider.accepted) return operation("EXECUTE", "Run recovery", "Persisted policy and approval state permit the execution endpoint to evaluate the governor and submit at most one provider action.", "execute");

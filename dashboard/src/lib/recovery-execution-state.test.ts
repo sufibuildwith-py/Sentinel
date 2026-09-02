@@ -88,6 +88,26 @@ describe("normalized persisted recovery execution state", () => {
     });
   });
 
+  it("does not offer resume after the backend reports exhausted attempts", () => {
+    const exhausted = {
+      ...approvedHuman,
+      action: { ...approvedHuman.action!, status: "RETRY_PENDING", executionAttempts: 3 },
+      executionAvailability: {
+        enabled: true,
+        eligible: false,
+        reasonCode: "MAX_EXECUTION_ATTEMPTS",
+        reason: "The maximum number of provider execution attempts has been reached",
+      },
+    };
+
+    expect(derivePrimaryRecoveryAction(normalizeRecoveryExecution(exhausted, approvedAudit))).toMatchObject({
+      kind: "NOT_READY",
+      operation: null,
+      executable: false,
+      label: "Execution attempts exhausted",
+    });
+  });
+
   it("resumes from the first incomplete persisted stage without replaying completed work", () => {
     expect(nextRecoveryOperation(approvedHuman, approvedAudit)).toBe("execute");
     const accepted: IncidentDetail = {
