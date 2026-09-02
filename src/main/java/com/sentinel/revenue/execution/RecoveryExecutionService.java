@@ -137,7 +137,10 @@ public class RecoveryExecutionService {
                 "One failed payment selected deterministically", null, "TEST");
 
         try {
-            if (target.getPaymentId().startsWith("pay_")) {
+            // Synthetic/demo payment IDs intentionally use the same readable
+            // prefix as Razorpay IDs, but they do not exist at the provider.
+            // Only provider-backed events may be fetched remotely.
+            if (isProviderBacked(target)) {
                 ProviderPayment providerPayment = gateway.fetchPayment(target.getPaymentId());
                 audit.appendExternal(incident, "RAZORPAY_TEST", "ORIGINAL_PAYMENT_VERIFIED",
                         List.of("target=" + masked(target.getPaymentId()), "status=" + providerPayment.status()),
@@ -262,6 +265,10 @@ public class RecoveryExecutionService {
         return payments.findAllByPaymentIdIn(incident.getAffectedPayments()).stream()
                 .sorted(Comparator.comparing(PaymentEvent::getTimestamp).thenComparing(PaymentEvent::getPaymentId))
                 .findFirst().orElseThrow(() -> new IllegalStateException("No payment exists for the action"));
+    }
+    private boolean isProviderBacked(PaymentEvent target) {
+        return target.getPaymentId().startsWith("pay_")
+                && !Boolean.TRUE.equals(target.getMetadata().get("synthetic"));
     }
     private PaymentLinkCommand command(RecoveryAction action, PaymentEvent target, RecoveryPlan plan) {
         return new PaymentLinkCommand(target.getAmountMinor(), target.getCurrency(), action.getProviderReferenceId(),

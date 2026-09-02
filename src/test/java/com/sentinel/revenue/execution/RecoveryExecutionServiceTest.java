@@ -56,6 +56,21 @@ class RecoveryExecutionServiceTest {
         verify(f.gateway, times(1)).createPaymentLink(any());
     }
 
+    @Test void syntheticPayPrefixedEventsDoNotTriggerProviderLookup() {
+        Fixture f = fixture(PolicyDecision.AUTO, RecoveryActionStatus.AUTO_APPROVED,
+                RecoveryStrategy.ALTERNATIVE_PAYMENT_LINK, "FAILED", Instant.now());
+        PaymentEvent synthetic = new PaymentEvent("pay_workload_01_000", "order_1", "customer_0182",
+                12_345, "INR", "UPI", "HDFC", "FAILED", "UPI_ISSUER_UNAVAILABLE", "failed",
+                Instant.now(), 1, null, 0, null, Map.of("synthetic", true));
+        when(f.payments.findAllByPaymentIdIn(any())).thenReturn(List.of(synthetic));
+        when(f.gateway.findPaymentLinkByReference(anyString())).thenReturn(Optional.empty());
+        when(f.gateway.createPaymentLink(any())).thenReturn(link("plink_synthetic"));
+
+        assertThat(f.service.execute(f.incidentId).providerId()).isEqualTo("plink_synthetic");
+        verify(f.gateway, never()).fetchPayment(anyString());
+        verify(f.gateway).createPaymentLink(any());
+    }
+
     @Test void shadowAndOpportunitySubsystemsCannotOverrideAuthoritativeExecutionGates() {
         assertThat(List.of(RecoveryExecutionService.class.getDeclaredFields()))
                 .extracting(field -> field.getType().getPackageName())
