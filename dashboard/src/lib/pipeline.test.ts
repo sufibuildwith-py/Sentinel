@@ -53,6 +53,19 @@ describe("audit-backed pipeline", () => {
     expect(stages.find((stage) => stage.label === "Reconcile")?.state).toBe("ACTIVE");
     expect(stages.find((stage) => stage.label === "Learn")?.state).toBe("QUEUED");
   });
+
+  it("does not present an execution request as provider acceptance", () => {
+    const detail: IncidentDetail = {
+      incident: { incidentId: "retry", type: "TEST", status: "EXECUTING", severity: "HIGH", amountAtRiskMinor: 100, detectedAt: "2026-08-31T00:00:00Z", affectedPaymentCount: 1, affectedCustomerCount: 1, recoveredAmountMinor: 0 },
+      findings: [],
+      action: { actionId: "a", status: "RETRY_PENDING", policyDecision: "HUMAN", amountMinor: 100, currency: "INR", executionAttempts: 3, approvedAt: "2026-08-31T00:00:03Z" },
+      truth: { stage: "EXECUTION_REQUESTED", executionMode: "RAZORPAY_TEST_MODE", providerAccepted: false, awaitingReconciliation: false, providerConfirmed: false, providerConfirmedAmountMinor: 0, basis: "Execution was requested but provider acceptance is not a financial outcome." },
+    };
+    const audit = [{ eventId: "claim", timestamp: "2026-08-31T00:00:05Z", actor: "EXECUTOR", stage: "EXECUTION_CLAIMED", narrative: "One failed payment selected", evidence: [], ruleTrace: [] }];
+    const stages = pipelineStates(detail, audit);
+    expect(stages.find((stage) => stage.label === "Execute")?.state).toBe("ACTIVE");
+    expect(stages.find((stage) => stage.label === "Accept")?.state).toBe("QUEUED");
+  });
 });
 
 describe("safe financial presentation", () => {
