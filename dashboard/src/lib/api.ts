@@ -77,6 +77,7 @@ export const api = {
     });
   },
   incidents: () => USE_FIXTURES ? delay(fixtureIncidents) : request<IncidentSummary[]>("/api/v1/revenue/incidents"),
+  ensureWorkload: () => USE_FIXTURES ? delay({ created: 0, idempotent: true }) : request<{ created: number; idempotent: boolean }>("/api/v1/demo/ensure-workload", { method: "POST" }),
   incident: (id: string) => USE_FIXTURES ? delay(fixtureIncidentDetail(id)) : request<IncidentDetail>(`/api/v1/revenue/incidents/${id}`),
   approvals: () => USE_FIXTURES ? delay(fixtureApprovals) : request<Approval[]>("/api/v1/revenue/approvals"),
   metrics: async () => {

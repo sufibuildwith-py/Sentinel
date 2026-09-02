@@ -3,6 +3,7 @@ package com.sentinel.revenue.api;
 import com.sentinel.revenue.service.DemoRevenueService;
 import com.sentinel.revenue.dataset.SyntheticPaymentDatasetGenerator;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,14 +14,24 @@ import org.springframework.web.bind.annotation.RestController;
 public class DemoController {
 
     private final DemoRevenueService demoRevenueService;
+    private final ObjectProvider<com.sentinel.revenue.service.DemoWorkloadSeeder> workloadSeeder;
 
-    public DemoController(DemoRevenueService demoRevenueService) {
+    public DemoController(DemoRevenueService demoRevenueService,
+                          ObjectProvider<com.sentinel.revenue.service.DemoWorkloadSeeder> workloadSeeder) {
         this.demoRevenueService = demoRevenueService;
+        this.workloadSeeder = workloadSeeder;
     }
 
     @PostMapping("/reset")
     public ResponseEntity<DemoResetResponse> reset() {
         return ResponseEntity.ok(demoRevenueService.resetSyntheticState());
+    }
+
+    @PostMapping("/ensure-workload")
+    public ResponseEntity<java.util.Map<String, Object>> ensureWorkload() {
+        var seeder = workloadSeeder.getIfAvailable();
+        int created = seeder == null ? 0 : seeder.ensureSeeded();
+        return ResponseEntity.ok(java.util.Map.of("created", created, "idempotent", true));
     }
 
     @PostMapping("/inject/upi-outage")

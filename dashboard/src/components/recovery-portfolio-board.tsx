@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 type Selection = { kind: "OPERATIONAL"; id: string } | { kind: "HISTORICAL"; id: string };
 
 export function RecoveryPortfolioBoard() {
-  const incidents = useQuery({ queryKey: ["incidents"], queryFn: api.incidents });
+  const incidents = useQuery({ queryKey: ["incidents"], queryFn: async () => { await api.ensureWorkload(); return api.incidents(); } });
   const historical = useQuery({ queryKey: ["historical-validation"], queryFn: api.historicalValidation, staleTime: 300_000 });
   const [selection, setSelection] = useState<Selection | null>(null);
   const effectiveSelection: Selection | null = selection

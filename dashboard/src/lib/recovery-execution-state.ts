@@ -18,7 +18,7 @@ export interface RecoveryExecutionState {
 export type PrimaryRecoveryKind =
   | "INVESTIGATE" | "PLAN" | "EXECUTE" | "SUBMITTED" | "AWAITING_RECONCILIATION"
   | "PROVIDER_CONFIRMED" | "POLICY_BLOCKED" | "GOVERNOR_BLOCKED" | "HUMAN_REVIEW"
-  | "NO_ACTION" | "UNSUPPORTED" | "NOT_READY";
+  | "PROVIDER_REJECTED" | "NO_ACTION" | "UNSUPPORTED" | "NOT_READY";
 
 export interface PrimaryRecoveryAction {
   kind: PrimaryRecoveryKind;
@@ -117,7 +117,8 @@ export function derivePrimaryRecoveryAction(state: RecoveryExecutionState): Prim
   if (state.provider.awaitingReconciliation) return result("AWAITING_RECONCILIATION", "Awaiting provider reconciliation", detail.truth?.basis ?? "Provider accepted; signed reconciliation is pending.");
   if (action && submittedStatuses.has(action.status)) return result("SUBMITTED", "Action submitted", "A provider action has already been claimed or submitted. Duplicate execution is disabled.");
   if (state.governor.resolution === "DENIED") return result("GOVERNOR_BLOCKED", "Governor blocked", state.governor.reason);
-  if (state.policy.resolution === "DENIED" || ["REJECTED", "STOPPED", "FAILED", "CANCELLED"].includes(action?.status ?? "")) return result("POLICY_BLOCKED", "Action blocked", "Persisted policy or action state does not permit provider execution.");
+  if (state.policy.resolution === "DENIED" || ["REJECTED", "STOPPED", "CANCELLED"].includes(action?.status ?? "")) return result("POLICY_BLOCKED", "Action blocked", "Persisted policy or action state does not permit provider execution.");
+  if (action?.status === "FAILED") return result("PROVIDER_REJECTED", "Provider rejected action", detail.action?.lastErrorCode ? `Razorpay rejected the request (${detail.action.lastErrorCode}). No provider action was accepted.` : "The provider rejected the request. No provider action was accepted.");
   if (detail.plan?.strategy === "NO_ACTION") return result("NO_ACTION", "No action", "Sentinel intentionally selected no intervention for this incident.");
   if (state.humanReview.resolution === "PENDING" && !state.humanReview.approvalPersisted) return result("HUMAN_REVIEW", "Awaiting human approval", state.humanReview.reason);
   if (!state.investigation.diagnosis && detail.incident.status === "DETECTED") return operation("INVESTIGATE", "Run recovery", "Investigation is the first incomplete persisted stage.", "investigate");

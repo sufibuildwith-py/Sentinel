@@ -17,7 +17,8 @@ public record IncidentDetailView(IncidentSummaryView incident, List<FindingView>
     public record ActionView(UUID actionId, RecoveryActionStatus status, PolicyDecision policyDecision,
                              long amountMinor, String currency, String providerId,
                              String referenceId, String shortUrl, String providerStatus,
-                             int executionAttempts, Instant approvedAt, Instant executedAt) { }
+                             String lastErrorCode, int executionAttempts,
+                             Instant approvedAt, Instant executedAt) { }
     public record GovernorView(UUID decisionId, boolean allowed, long allowedValueMinor,
                                List<String> violations, Instant evaluatedAt) {
         public GovernorView { violations = List.copyOf(violations); }

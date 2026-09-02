@@ -63,8 +63,8 @@ public class RevenueOperationsReadService {
         IncidentDetailView.ActionView actionView = action == null ? null : new IncidentDetailView.ActionView(
                 action.getId(), action.getStatus(), action.getPolicyDecision(), action.getAmountMinor(),
                 action.getCurrency(), action.getExternalResourceId(), action.getProviderReferenceId(),
-                action.getExternalResourceUrl(), action.getExternalResourceStatus(), action.getExecutionAttempts(),
-                action.getApprovedAt(), action.getExecutedAt());
+                action.getExternalResourceUrl(), action.getExternalResourceStatus(), action.getLastErrorCode(),
+                action.getExecutionAttempts(), action.getApprovedAt(), action.getExecutedAt());
         RecoveryGovernorDecision governorDecision = governorDecisions
                 .findAllByIncidentIdOrderByCreatedAtAsc(id).stream()
                 .filter(decision -> action == null || action.getId().equals(decision.getRecoveryActionId()))

@@ -34,11 +34,26 @@ public class DemoWorkloadSeeder {
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void seed() {
+        seedWorkload();
+    }
+
+    /**
+     * Idempotently ensures the distinct operational portfolio exists. This is
+     * also called by the dashboard when it is refreshed, so a cold database or
+     * a deployment that started before the seeder ran self-heals without
+     * creating duplicate payment events.
+     */
+    @Transactional
+    public int ensureSeeded() {
+        return seedWorkload();
+    }
+
+    private int seedWorkload() {
         boolean alreadySeeded = paymentEvents.findAll().stream()
                 .anyMatch(event -> "distinct-v2".equals(event.getMetadata().get("workloadVersion")));
         if (alreadySeeded) {
             log.debug("Synthetic Test Mode workload already present; skipping seed");
-            return;
+            return 0;
         }
         demoRevenueService.resetLegacyWorkload();
         String[][] profiles = {
@@ -59,5 +74,6 @@ public class DemoWorkloadSeeder {
                     profile[1], profile[2], profile[3], Long.parseLong(profile[4]));
         }
         log.info("Preloaded {} isolated synthetic Test Mode recovery cases", WORKLOAD_CASES);
+        return WORKLOAD_CASES;
     }
 }

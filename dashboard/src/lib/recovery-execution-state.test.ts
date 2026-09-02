@@ -153,6 +153,20 @@ describe("normalized persisted recovery execution state", () => {
     expect(pending.reconciliation.confirmed).toBe(false);
   });
 
+  it("distinguishes a provider rejection from a policy block", () => {
+    const failed: IncidentDetail = {
+      ...approvedHuman,
+      incident: { ...approvedHuman.incident, status: "FAILED" },
+      action: { ...approvedHuman.action!, status: "FAILED", lastErrorCode: "BAD_REQUEST_ERROR" },
+      governor: { decisionId: "governor", allowed: true, allowedValueMinor: 3600000, violations: [], evaluatedAt: at },
+    };
+    expect(derivePrimaryRecoveryAction(normalizeRecoveryExecution(failed, approvedAudit))).toMatchObject({
+      kind: "PROVIDER_REJECTED",
+      label: "Provider rejected action",
+      executable: false,
+    });
+  });
+
   it("renders terminal policy and human refusals without queued downstream execution", () => {
     const policyDenied: IncidentDetail = {
       ...approvedHuman,

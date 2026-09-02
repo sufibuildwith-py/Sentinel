@@ -61,7 +61,10 @@ public class DemoRevenueService {
 
     @Transactional
     public DemoInjectionResponse injectScenario(SyntheticPaymentDatasetGenerator.Scenario scenario) {
-        return injectScenario(scenario, "demo");
+        // Every manual injection is a new isolated workload. Reusing the old
+        // "demo" namespace makes the idempotent payment-event key collide and
+        // silently produces no new incident on the second run.
+        return injectScenario(scenario, "demo-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12));
     }
 
     @Transactional
