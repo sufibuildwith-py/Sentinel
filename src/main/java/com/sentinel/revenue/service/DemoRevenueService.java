@@ -94,6 +94,24 @@ public class DemoRevenueService {
         return new DemoInjectionResponse(ingestion, created.size(), created);
     }
 
+    @Transactional
+    public void resetLegacyWorkload() {
+        List<PaymentEvent> legacyEvents = paymentEvents.findAll().stream()
+                .filter(event -> event.getMetadata().containsKey("workloadNamespace"))
+                .filter(event -> !"distinct-v2".equals(event.getMetadata().get("workloadVersion")))
+                .toList();
+        Set<String> legacyPaymentIds = legacyEvents.stream()
+                .map(PaymentEvent::getPaymentId).collect(java.util.stream.Collectors.toSet());
+        List<RevenueIncident> legacyIncidents = incidents.findAll().stream()
+                .filter(incident -> incident.getAffectedPayments().stream().anyMatch(legacyPaymentIds::contains))
+                .toList();
+        java.time.Instant resetAt = java.time.Instant.now();
+        legacyIncidents.forEach(incident -> incident.markDemoReset(resetAt));
+        legacyEvents.forEach(event -> event.markDemoReset(resetAt));
+        incidents.saveAllAndFlush(legacyIncidents);
+        paymentEvents.saveAllAndFlush(legacyEvents);
+    }
+
     private DemoIncidentSummary summary(RevenueIncident incident) {
         return new DemoIncidentSummary(
                 incident.getIncidentId(),

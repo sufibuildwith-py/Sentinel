@@ -35,12 +35,12 @@ public class DemoWorkloadSeeder {
     @Transactional
     public void seed() {
         boolean alreadySeeded = paymentEvents.findAll().stream()
-                .anyMatch(event -> event.getMetadata().keySet().stream()
-                        .anyMatch(key -> "workloadNamespace".equals(key)));
+                .anyMatch(event -> "distinct-v2".equals(event.getMetadata().get("workloadVersion")));
         if (alreadySeeded) {
             log.debug("Synthetic Test Mode workload already present; skipping seed");
             return;
         }
+        demoRevenueService.resetLegacyWorkload();
         String[][] profiles = {
                 {"UPI DEGRADATION", "UPI", "HDFC", "UPI_ISSUER_UNAVAILABLE", "47512"},
                 {"GATEWAY TIMEOUT", "CARD", "RAZORPAY_GATEWAY", "PAYMENT_TIMED_OUT", "38900"},

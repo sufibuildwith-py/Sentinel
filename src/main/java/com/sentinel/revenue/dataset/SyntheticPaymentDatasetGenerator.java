@@ -77,6 +77,7 @@ public final class SyntheticPaymentDatasetGenerator {
             metadata.put("datasetSeed", SEED);
             metadata.put("merchantId", "merchant_" + safeNamespace);
             metadata.put("workloadNamespace", safeNamespace);
+            metadata.put("workloadVersion", "distinct-v2");
             events.add(new PaymentEventRequest(
                     "pay_" + safeNamespace + "_" + String.format("%03d", index),
                     "order_" + safeNamespace + "_" + String.format("%03d", index),
