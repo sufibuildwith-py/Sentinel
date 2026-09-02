@@ -12,6 +12,7 @@ import java.util.UUID;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,5 +53,20 @@ class DemoControllerTest {
                 .andExpect(jsonPath("$.incidents[0].incidentId")
                         .value(incidentId.toString()))
                 .andExpect(jsonPath("$.incidents[0].type").value("UPI_DEGRADATION"));
+    }
+
+    @Test
+    void scenarioInjectionUsesTheRequestedFailureClass() throws Exception {
+        when(demoRevenueService.injectScenario(
+                com.sentinel.revenue.dataset.SyntheticPaymentDatasetGenerator.Scenario.PROVIDER_OUTAGE))
+                .thenReturn(new DemoInjectionResponse(new BatchIngestionSummary(30, 0, List.of()), 0, List.of()));
+
+        mockMvc.perform(post("/api/v1/demo/inject/provider-outage"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ingestion.count").value(30))
+                .andExpect(jsonPath("$.incidentsCreated").value(0));
+
+        verify(demoRevenueService, times(1)).injectScenario(
+                com.sentinel.revenue.dataset.SyntheticPaymentDatasetGenerator.Scenario.PROVIDER_OUTAGE);
     }
 }

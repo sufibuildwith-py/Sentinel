@@ -125,6 +125,9 @@ export const api = {
     ? delay({ incidentsReset: fixtureIncidents.length, eventsReset: 0, auditHistoryPreserved: true, message: "Synthetic fixture state reset; audit history preserved" })
     : request<{ incidentsReset: number; eventsReset: number; auditHistoryPreserved: boolean; message: string }>("/api/v1/demo/reset", { method: "POST" }),
   inject: () => USE_FIXTURES ? delay({ incidentIds: [fixtureIncidents[0].incidentId] }) : request<{ incidentIds?: string[] }>("/api/v1/demo/inject/upi-outage", { method: "POST" }),
+  injectScenario: (scenario: string) => USE_FIXTURES
+    ? delay({ incidentIds: [fixtureIncidents[0].incidentId] })
+    : request<{ incidentIds?: string[] }>(`/api/v1/demo/inject/${scenario}`, { method: "POST" }),
   evaluation: () => USE_FIXTURES ? delay(fixtureEvaluation) : request<EvaluationReport>("/api/v1/evaluation/report"),
   runEvaluation: () => USE_FIXTURES ? delay(fixtureEvaluation) : request<EvaluationReport>("/api/v1/evaluation/run", { method: "POST" }),
   recoveryOlympics: () => USE_FIXTURES ? delay<RecoveryOlympicsReport>({ title: "Recovery Olympics", truthLabel: "SYNTHETIC / CONTROLLED BENCHMARK", datasetVersion: "requires-live-evaluation-api", seed: 20260901, datasetSize: 0, frozenSplit: { DEVELOPMENT: 0, HELD_OUT: 0, ADVERSARIAL: 0 }, arms: [], integrityRules: [], simulatorAssumptions: [], limitations: ["Connect the evaluation API to generate benchmark results; no numbers are fabricated in fixture mode."] }) : request<RecoveryOlympicsReport>("/api/v1/evaluation/recovery-olympics"),

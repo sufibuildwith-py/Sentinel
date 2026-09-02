@@ -56,12 +56,16 @@ public class DemoRevenueService {
 
     @Transactional
     public DemoInjectionResponse injectUpiOutage() {
+        return injectScenario(SyntheticPaymentDatasetGenerator.Scenario.UPI_DEGRADATION);
+    }
+
+    @Transactional
+    public DemoInjectionResponse injectScenario(SyntheticPaymentDatasetGenerator.Scenario scenario) {
         Set<UUID> existingIncidentIds = new HashSet<>();
         incidents.findAll().forEach(incident -> existingIncidentIds.add(incident.getIncidentId()));
 
         BatchIngestionSummary ingestion = ingestionService.ingest(
-                new SyntheticPaymentDatasetGenerator().generateScenario(
-                        SyntheticPaymentDatasetGenerator.Scenario.UPI_DEGRADATION));
+                new SyntheticPaymentDatasetGenerator().generateScenario(scenario));
         List<DemoIncidentSummary> created = incidents.findAll().stream()
                 .filter(incident -> !existingIncidentIds.contains(incident.getIncidentId()))
                 .map(this::summary)
