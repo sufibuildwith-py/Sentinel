@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, ArrowRight, CircleDollarSign, Clock3, ShieldAlert, ShieldCheck, Target, Users } from "lucide-react";
+import { Activity, AlertCircle, ArrowRight, CircleDollarSign, Clock3, ShieldAlert, ShieldCheck, Target, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api, money, shortId } from "@/lib/api";
-import { fixtureMode } from "@/lib/environment";
+import { fixtureMode, frontendBuildSha } from "@/lib/environment";
 import { financialTruthFunnel, policyDistribution as derivePolicyDistribution } from "@/lib/operations-board";
 import { TruthBadge } from "@/components/console-ui";
 import { ErrorState, PageHeader, StateBadge } from "@/components/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { queryErrorPresentation } from "@/lib/api-errors";
 
 const windows = ["5m", "15m", "60m", "24h", "7d"] as const;
 const palette = ["#2563eb", "#f59e0b", "#ef4444", "#22c55e", "#64748b"];
@@ -20,10 +21,12 @@ export function OperationsCommandCenter() {
   const tower = useQuery({ queryKey: ["control-tower"], queryFn: api.controlTower });
   const incidents = useQuery({ queryKey: ["incidents"], queryFn: api.incidents });
   const approvals = useQuery({ queryKey: ["approvals"], queryFn: api.approvals });
+  const backendInfo = useQuery({ queryKey: ["backend-info"], queryFn: api.backendInfo, staleTime: 60_000 });
+  const historical = useQuery({ queryKey: ["historical-validation"], queryFn: api.historicalValidation, staleTime: 300_000 });
   const [healthWindow, setHealthWindow] = useState<(typeof windows)[number]>("15m");
-  const refresh = () => { void tower.refetch(); void incidents.refetch(); void approvals.refetch(); };
-  const loading = tower.isLoading || incidents.isLoading || approvals.isLoading;
-  const error = tower.error ?? incidents.error ?? approvals.error;
+  const refresh = () => { void tower.refetch(); void incidents.refetch(); void approvals.refetch(); void backendInfo.refetch(); void historical.refetch(); };
+  const loading = tower.isLoading || incidents.isLoading;
+  const error = tower.error ?? incidents.error;
   const policyDistribution = useMemo(() => derivePolicyDistribution(incidents.data ?? []), [incidents.data]);
   const failureDistribution = useMemo(() => {
     const values = new Map<string, number>();
@@ -40,10 +43,17 @@ export function OperationsCommandCenter() {
   const enabledSwitches = Object.values(data.governor.killSwitches).filter(Boolean).length;
   const currentHealth = data.paymentHealth.current[healthWindow] ?? data.paymentHealth.baseline[healthWindow];
   const funnel = financialTruthFunnel(attribution);
+  const providerExecutionLabel = !backendInfo.data?.providerExecution
+    ? "UNKNOWN"
+    : backendInfo.data.providerExecution.enabled
+      ? "ENABLED"
+      : "DISABLED";
 
   return <div>
-    <div className="-mx-4 mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-200 bg-white/70 px-6 py-3 font-mono text-[10px] tracking-[0.2em] uppercase backdrop-blur sm:-mx-6 lg:-mx-8"><span className="flex items-center gap-2 text-emerald-600"><span className="size-1.5 rounded-full bg-emerald-500" />System online</span><span className="text-slate-500">Razorpay Test Mode</span><span className="text-slate-500">Policy engine active</span><span className="text-slate-500">Fixture Mode: {fixtureMode ? "ON" : "OFF"}</span></div>
+    <div className="-mx-4 mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-200 bg-white/70 px-6 py-3 font-mono text-[10px] tracking-[0.2em] uppercase backdrop-blur sm:-mx-6 lg:-mx-8"><span className="flex items-center gap-2 text-emerald-600"><span className="size-1.5 rounded-full bg-emerald-500" />System online</span><span className="text-slate-500">Razorpay Test Mode: {providerExecutionLabel}</span><span className="text-slate-500">Policy engine active</span><span className="text-slate-500">Fixture Mode: {fixtureMode ? "ON" : "OFF"}</span><span className="text-slate-400">Frontend {frontendBuildSha.slice(0, 8)}</span>{backendInfo.data?.application?.commit && <span className="text-slate-400">Backend {backendInfo.data.application.commit.slice(0, 8)}</span>}</div>
     <PageHeader eyebrow="Overview" title="Revenue recovery operations" description="Portfolio risk, deterministic authority, provider acceptance, and confirmed financial truth in one view." onRefresh={refresh} refreshing={tower.isFetching || incidents.isFetching || approvals.isFetching} updated={tower.dataUpdatedAt ? new Date(tower.dataUpdatedAt) : undefined} />
+    {approvals.error && <ScopedDataWarning error={approvals.error} retry={() => void approvals.refetch()} />}
+    {historical.error && <ScopedDataWarning scope="Historical validation" error={historical.error} retry={() => void historical.refetch()} />}
     <div className="mb-5 flex flex-wrap gap-2"><TruthBadge label={data.scopeLabel} />{data.truthLabels.slice(4).map((label) => <TruthBadge key={label} label={label} />)}</div>
 
     <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5" aria-label="Portfolio financial and safety posture">
@@ -73,8 +83,11 @@ export function OperationsCommandCenter() {
       <Panel title="Active recovery portfolio" eyebrow="Operator focus"><div className="space-y-3">{activeIncidents.slice(0, 5).map((incident) => <Link key={incident.incidentId} href={`/incidents/${incident.incidentId}`} className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white/70 p-4 transition-colors hover:border-primary/30"><div><p className="font-mono text-[9px] text-primary">{shortId(incident.incidentId)}</p><p className="mt-1 text-sm font-semibold">{incident.type.replaceAll("_", " ")}</p><p className="mt-1 text-xs text-muted-foreground">{money(incident.amountAtRiskMinor)} · {incident.affectedPaymentCount} payments</p></div><div className="flex items-center gap-2"><StateBadge value={incident.status} /><ArrowRight className="size-4 text-slate-400" /></div></Link>)}{activeIncidents.length === 0 && <p className="py-12 text-center text-xs text-muted-foreground">No active operational incident.</p>}</div><Button nativeButton={false} variant="outline" className="mt-4 w-full" render={<Link href="/recovery" />}>Open recovery operations board <ArrowRight /></Button></Panel>
       <Panel title="Safety prevented" eyebrow="Refusals are successful controls"><div className="grid grid-cols-2 gap-3"><SafetyFact label="Policy blocks" value={policyBlocks} /><SafetyFact label="Governor-wide stops" value={enabledSwitches} /><SafetyFact label="Shadow regressions" value={data.replayAndShadow.criticalRegressionCount} /><SafetyFact label="Human reviews" value={approvals.data?.length ?? 0} /></div><p className="mt-5 text-xs leading-5 text-muted-foreground">Counts reflect persisted operational decisions and current governor posture. Duplicate-prevention totals are not exposed by this aggregate and are not estimated.</p></Panel>
     </section>
+    {historical.data && <section className="mt-4"><Panel title="Historical Razorpay validation" eyebrow="Historical public source · replay only"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><SafetyFact label="Public cases" value={historical.data.acceptedPublicSourceCases} /><SafetyFact label="Replay passes" value={historical.data.passed} /><SafetyFact label="Safe refusals" value={historical.data.safeRefusals} /><SafetyFact label="Unsafe executions" value={historical.data.unsafeExecutions} /></div><div className="mt-5 flex flex-wrap gap-2">{Object.entries(historical.data.sourceComposition).map(([source, count]) => <span key={source} className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 font-mono text-[9px] text-cyan-800">{source.replaceAll("_", " ")} · {count}</span>)}</div><p className="mt-4 text-xs text-muted-foreground">These are provenance-linked public integration and failure reports. They carry no merchant INR amount and never enter provider execution.</p><Button nativeButton={false} variant="outline" className="mt-4" render={<Link href="/evaluation/historical" />}>Browse all historical cases <ArrowRight /></Button></Panel></section>}
   </div>;
 }
+
+function ScopedDataWarning({ error, retry, scope = "Review queue" }: { error: Error; retry: () => void; scope?: string }) { const state = queryErrorPresentation(error); return <div className="mb-5 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-sm sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-3"><AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-600" /><div><p className="font-semibold text-amber-900">{scope}: {state.label}</p><p className="mt-1 text-xs text-amber-800">{state.message}{state.requestId ? ` Request ID ${state.requestId}.` : ""} Other command-center data remains live.</p></div></div><Button size="sm" variant="outline" onClick={retry}>Retry {scope.toLowerCase()}</Button></div>; }
 
 function Kpi({ icon: Icon, label, value, detail, tone = "text-slate-900" }: { icon: typeof Activity; label: string; value: string; detail: string; tone?: string }) { return <div className="glass-panel rounded-xl p-5"><div className="flex items-center justify-between"><p className="eyebrow">{label}</p><Icon className="size-4 text-slate-400" /></div><p className={`mt-5 font-mono text-xl font-bold ${tone}`}>{value}</p><p className="mt-2 text-[11px] leading-4 text-muted-foreground">{detail}</p></div>; }
 function Panel({ title, eyebrow, children }: { title: string; eyebrow: string; children: React.ReactNode }) { return <div className="glass-panel rounded-2xl p-5 sm:p-6"><p className="eyebrow">{eyebrow}</p><h2 className="mt-2 text-lg font-semibold">{title}</h2><div className="mt-5">{children}</div></div>; }

@@ -24,8 +24,10 @@ public record HistoricalValidationReport(
         double replayDeterminismRate,
         List<CaseResult> cases,
         List<String> limitations) {
-    public record CaseResult(String caseId, HistoricalSourceClass sourceClass, String sourceDate,
-                             String sourceUrl, String productSurface, String normalizedFailureClass,
+    public record CaseResult(String caseId, HistoricalSourceClass sourceClass, String sourceTitle,
+                             String sourceDate, String sourceUrl, String productSurface, String paymentRail,
+                             String providerState, String normalizedFailureClass, String normalizedFailureReason,
+                             String expectedBehaviorClass, boolean outcomeKnown,
                              List<String> expectedInvariants, List<String> observedInvariants,
                              String result, boolean safeRefusal, boolean unexpectedExecution,
                              boolean unverifiedRecoveryClaim, boolean duplicateFinancialEffect,

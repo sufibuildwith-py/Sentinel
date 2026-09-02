@@ -53,7 +53,8 @@ import static org.mockito.Mockito.*;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Testcontainers
 @Import({RecoveryExecutionService.class, AuditLogService.class, JpaAuditEventRepository.class,
-        RecoverySafetyGovernor.class, KillSwitchService.class, DynamicRecoveryGovernor.class})
+        RecoverySafetyGovernor.class, KillSwitchService.class, DynamicRecoveryGovernor.class,
+        RecoveryExecutionEligibilityEvaluator.class})
 @EnableConfigurationProperties({RazorpayProperties.class, RecoverySafetyProperties.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class RecoveryExecutionConcurrencyTest {

@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { updatedAt } from "@/lib/api";
 import { fixtureMode } from "@/lib/environment";
+import { queryErrorPresentation } from "@/lib/api-errors";
 
 export function PageHeader({ eyebrow, title, description, onRefresh, refreshing, updated }: { eyebrow: string; title: string; description: string; onRefresh?: () => void; refreshing?: boolean; updated?: Date; }) {
   return <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="eyebrow">{eyebrow}</p><h1 className="mt-2 text-2xl font-semibold tracking-[-.03em] sm:text-3xl">{title}</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p></div><div className="flex items-center gap-3 self-start md:self-auto"><span className="text-[11px] text-muted-foreground">Last updated {updated ? updatedAt(updated) : "awaiting data"}</span>{onRefresh && <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing} aria-label="Refresh data"><RefreshCw className={cn(refreshing && "animate-spin")} /> Refresh</Button>}</div></div>;
@@ -53,4 +54,4 @@ export function SelectedGlow({ children, className }: { children: ReactNode; cla
 }
 
 export function LoadingGrid() { return <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-36 rounded-xl" />)}</div>; }
-export function ErrorState({ error, retry }: { error: Error; retry: () => void }) { return <div className="glass-panel rounded-xl p-8 text-center"><AlertCircle className="mx-auto size-6 text-destructive" /><h2 className="mt-3 font-mono text-xs tracking-[0.2em] text-[#444444] uppercase">Data unavailable</h2><p className="mt-2 font-mono text-xs text-[#444444]">The backend may be offline. Fixture mode: {fixtureMode ? "ON" : "OFF"}.</p><p className="sr-only">{error.message}</p><Button variant="outline" className="mt-4" onClick={retry}>Try again</Button></div>; }
+export function ErrorState({ error, retry }: { error: Error; retry: () => void }) { const state = queryErrorPresentation(error); return <div className="glass-panel rounded-xl p-8 text-center"><AlertCircle className="mx-auto size-6 text-destructive" /><h2 className="mt-3 font-mono text-xs tracking-[0.2em] text-[#444444] uppercase">{state.label}</h2><p className="mt-2 font-mono text-xs text-[#444444]">{state.message} Fixture mode: {fixtureMode ? "ON" : "OFF"}.</p>{state.requestId && <p className="mt-2 font-mono text-[10px] text-slate-400">Request ID {state.requestId}</p>}<p className="sr-only">{error.message}</p><Button variant="outline" className="mt-4" onClick={retry}>Try again</Button></div>; }

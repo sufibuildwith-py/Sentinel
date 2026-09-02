@@ -1,6 +1,6 @@
 import { fixtureApprovals, fixtureAuditByIncidentId, fixtureIncidentDetails, fixtureIncidents, fixtureMetrics } from "./fixtures";
 import { fixtureEvaluation } from "./evaluation-fixture";
-import type { ActionMarketplace, Approval, AuditEntry, ControlTower, CounterfactualEstimate, CustomerRecoveryProfile, DecisionCertificate, EvaluationReport, EvidenceCapsule, ExecutionResult, FailureLabResult, FailureLabScenario, FinancialAttribution, HistoricalValidationReport, IncidentDetail, IncidentSummary, LlmDiagnostic, LostRevenueExplorer, Metrics, PlanningResult, RecoveryCostEntry, RecoveryOlympicsReport, RegisteredModel, TimingRecommendation } from "./types";
+import type { ActionMarketplace, Approval, AuditEntry, BackendInfo, ControlTower, CounterfactualEstimate, CustomerRecoveryProfile, DecisionCertificate, EvaluationReport, EvidenceCapsule, ExecutionResult, FailureLabResult, FailureLabScenario, FinancialAttribution, HistoricalValidationReport, IncidentDetail, IncidentSummary, LlmDiagnostic, LostRevenueExplorer, Metrics, PlanningResult, RecoveryCostEntry, RecoveryOlympicsReport, RegisteredModel, TimingRecommendation } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_SENTINEL_API_URL ?? "http://localhost:8080";
 const USE_FIXTURES = process.env.NEXT_PUBLIC_USE_FIXTURES === "true";
@@ -52,6 +52,7 @@ const fixtureFailureLab: FailureLabScenario[] = [
 ].map(([id, title, description, mode, expectedSafetyOutcome]) => ({ id, title, description, mode: mode as FailureLabScenario["mode"], expectedSafetyOutcome, evidenceSelector: "fixture", runnable: id !== "accepted-not-recovered" }));
 
 export const api = {
+  backendInfo: () => USE_FIXTURES ? delay<BackendInfo>({ application: { name: "sentinel", version: "fixture", commit: "fixture" }, providerExecution: { provider: "RAZORPAY", mode: "TEST", enabled: false, credentialsConfigured: false } }) : request<BackendInfo>("/actuator/info"),
   failureLabScenarios: () => USE_FIXTURES ? delay(fixtureFailureLab) : request<FailureLabScenario[]>("/api/v1/failure-lab/scenarios"),
   runFailureLab: (id: string) => USE_FIXTURES
     ? delay<FailureLabResult>({ scenario: fixtureFailureLab.find((item) => item.id === id)!, status: id === "accepted-not-recovered" ? "REQUIRES_REAL_PROVIDER_EVENT" : "EVIDENCED", safetyDemonstrationPassed: id !== "accepted-not-recovered", observedBehavior: id === "accepted-not-recovered" ? "No outcome was synthesized. A signed provider event is required." : "The deterministic fixture harness contains the expected bounded or refusal behavior.", evidence: ["SYNTHETIC BENCHMARK", "No real provider outcome claimed"], evaluatedAt: new Date().toISOString() })

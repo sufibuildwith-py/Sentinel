@@ -8,7 +8,7 @@ import java.util.UUID;
 
 public record IncidentDetailView(IncidentSummaryView incident, List<FindingView> findings,
                                  PlanView plan, ActionView action, GovernorView governor,
-                                 TruthView truth) {
+                                 TruthView truth, ExecutionAvailabilityView executionAvailability) {
     public IncidentDetailView { findings = List.copyOf(findings); }
     public record FindingView(String source, String summary, BigDecimal confidence,
                               List<String> evidence, Instant createdAt) { }
@@ -26,4 +26,6 @@ public record IncidentDetailView(IncidentSummaryView incident, List<FindingView>
                             boolean providerAccepted, boolean awaitingReconciliation,
                             boolean providerConfirmed, long providerConfirmedAmountMinor,
                             String basis) { }
+    public record ExecutionAvailabilityView(boolean enabled, boolean eligible,
+                                            String reasonCode, String reason) { }
 }

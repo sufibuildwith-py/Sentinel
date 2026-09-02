@@ -6,7 +6,9 @@ export interface PlanView { planId: string; strategy: string; reason: string; ta
 export interface ActionView { actionId: string; status: string; policyDecision?: string | null; amountMinor: number; currency: string; providerId?: string | null; referenceId?: string | null; shortUrl?: string | null; providerStatus?: string | null; executionAttempts: number; approvedAt?: string | null; executedAt?: string | null; }
 export interface GovernorView { decisionId: string; allowed: boolean; allowedValueMinor: number; violations: string[]; evaluatedAt: string; }
 export interface RecoveryTruth { stage: "PROPOSED" | "POLICY_APPROVED" | "EXECUTION_REQUESTED" | "PROVIDER_ACCEPTED" | "AWAITING_RECONCILIATION" | "RECOVERED_CONFIRMED" | "FAILED_CONFIRMED" | "EXPIRED"; executionMode: "RAZORPAY_TEST_MODE" | "SIMULATION" | "FAULT_INJECTION" | "SYNTHETIC_BENCHMARK" | "SHADOW_ONLY" | "LEGACY_UNSPECIFIED"; providerAccepted: boolean; awaitingReconciliation: boolean; providerConfirmed: boolean; providerConfirmedAmountMinor: number; basis: string; }
-export interface IncidentDetail { incident: IncidentSummary; findings: Finding[]; plan?: PlanView | null; action?: ActionView | null; governor?: GovernorView | null; truth?: RecoveryTruth | null; }
+export interface ExecutionAvailability { enabled: boolean; eligible: boolean; reasonCode: string; reason: string; }
+export interface BackendInfo { application?: { name?: string; version?: string; commit?: string; buildTime?: string; }; providerExecution?: { provider: string; mode: string; enabled: boolean; credentialsConfigured: boolean; }; }
+export interface IncidentDetail { incident: IncidentSummary; findings: Finding[]; plan?: PlanView | null; action?: ActionView | null; governor?: GovernorView | null; truth?: RecoveryTruth | null; executionAvailability?: ExecutionAvailability | null; }
 export interface EvidenceCapsule {
   incidentId: string; assembledAt: string;
   webhooks: { eventId: string; eventType: string; verified: boolean; processed: boolean; receivedAt: string; processedAt?: string | null; }[];
@@ -73,7 +75,7 @@ export interface RecoveryOlympicsReport {
 }
 
 export interface HistoricalValidationCaseResult {
-  caseId: string; sourceClass: string; sourceDate: string; sourceUrl: string; productSurface: string; normalizedFailureClass: string; expectedInvariants: string[]; observedInvariants: string[]; result: "PASS" | "PARTIAL" | "FAIL"; safeRefusal: boolean; unexpectedExecution: boolean; unverifiedRecoveryClaim: boolean; duplicateFinancialEffect: boolean; traceComplete: boolean; logicalLatencyMillis: number; policyDisposition: string; evidenceLabel: string;
+  caseId: string; sourceClass: string; sourceTitle: string; sourceDate: string; sourceUrl: string; productSurface: string; paymentRail: string; providerState: string; normalizedFailureClass: string; normalizedFailureReason: string; expectedBehaviorClass: string; outcomeKnown: boolean; expectedInvariants: string[]; observedInvariants: string[]; result: "PASS" | "PARTIAL" | "FAIL"; safeRefusal: boolean; unexpectedExecution: boolean; unverifiedRecoveryClaim: boolean; duplicateFinancialEffect: boolean; traceComplete: boolean; logicalLatencyMillis: number; policyDisposition: string; evidenceLabel: string;
 }
 
 export interface HistoricalValidationReport {

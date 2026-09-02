@@ -35,28 +35,39 @@ public class RecoveryExecutionService {
     private final RazorpayProperties properties;
     private final AuditLogService audit;
     private final RecoverySafetyGovernor governor;
+    private final RecoveryExecutionEligibilityEvaluator eligibility;
     private final RevenueIncidentStateMachine stateMachine = new RevenueIncidentStateMachine();
 
     @Autowired
     public RecoveryExecutionService(RecoveryActionRepository actions, RecoveryPlanRepository plans,
                                     RevenueIncidentRepository incidents, PaymentEventRepository payments,
                                     RazorpayGateway gateway, RazorpayProperties properties,
-                                    AuditLogService audit, RecoverySafetyGovernor governor) {
+                                    AuditLogService audit, RecoverySafetyGovernor governor,
+                                    RecoveryExecutionEligibilityEvaluator eligibility) {
         this.actions = actions; this.plans = plans; this.incidents = incidents; this.payments = payments;
         this.gateway = gateway; this.properties = properties; this.audit = audit;
         this.governor = governor;
+        this.eligibility = eligibility;
     }
 
     public RecoveryExecutionService(RecoveryActionRepository actions, RecoveryPlanRepository plans,
                                     RevenueIncidentRepository incidents, PaymentEventRepository payments,
                                     RazorpayGateway gateway, RazorpayProperties properties,
                                     AuditLogService audit) {
-        this(actions, plans, incidents, payments, gateway, properties, audit, null);
+        this(actions, plans, incidents, payments, gateway, properties, audit, null,
+                new RecoveryExecutionEligibilityEvaluator(properties));
+    }
+
+    public RecoveryExecutionService(RecoveryActionRepository actions, RecoveryPlanRepository plans,
+                                    RevenueIncidentRepository incidents, PaymentEventRepository payments,
+                                    RazorpayGateway gateway, RazorpayProperties properties,
+                                    AuditLogService audit, RecoverySafetyGovernor governor) {
+        this(actions, plans, incidents, payments, gateway, properties, audit, governor,
+                new RecoveryExecutionEligibilityEvaluator(properties));
     }
 
     @Transactional
     public RecoveryExecutionResponse execute(UUID incidentId) {
-        if (!properties.enabled()) throw new IllegalStateException("Razorpay Test Mode execution is disabled");
         RecoveryAction action = actions.findForExecutionByIncidentId(incidentId)
                 .orElseThrow(() -> new IllegalArgumentException("Recovery action not found for incident: " + incidentId));
         RevenueIncident incident = incidents.findById(incidentId)
@@ -66,7 +77,8 @@ public class RecoveryExecutionService {
 
         if (action.getStatus() == RecoveryActionStatus.EXECUTED && action.getExternalResourceId() != null)
             return response(incidentId, action, true, "Existing Test Mode link returned");
-        validateEligibility(action, plan);
+        RecoveryExecutionEligibility currentEligibility = eligibility.evaluate(action, plan, null);
+        if (!currentEligibility.eligible()) throw new RecoveryExecutionUnavailableException(currentEligibility);
 
         Instant now = Instant.now();
         if (now.isAfter(action.getCreatedAt().plus(properties.actionExpiry()))) {
@@ -241,19 +253,6 @@ public class RecoveryExecutionService {
         audit.appendExternal(incident, "RAZORPAY_TEST", "EXECUTION_STOPPED", List.of("alreadyPaid=true"),
                 "Duplicate-charge risk prevented link creation", null, "TEST");
         return response(incident.getIncidentId(), action, false, "Original payment is already settled");
-    }
-
-    private void validateEligibility(RecoveryAction action, RecoveryPlan plan) {
-        if (plan.getStrategy() != RecoveryStrategy.ALTERNATIVE_PAYMENT_LINK)
-            throw new IllegalStateException("Only ALTERNATIVE_PAYMENT_LINK can execute in Phase 6");
-        boolean auto = action.getStatus() == RecoveryActionStatus.AUTO_APPROVED
-                && action.getPolicyDecision() == PolicyDecision.AUTO;
-        boolean human = action.getStatus() == RecoveryActionStatus.APPROVED
-                && action.getPolicyDecision() == PolicyDecision.HUMAN && action.getApprovedAt() != null;
-        boolean resumable = action.getStatus() == RecoveryActionStatus.RETRY_PENDING
-                || action.getStatus() == RecoveryActionStatus.EXECUTION_UNCERTAIN;
-        if (!auto && !human && !resumable)
-            throw new IllegalStateException("Action lacks persisted execution permission");
     }
 
     private PaymentEvent selectTarget(RevenueIncident incident) {

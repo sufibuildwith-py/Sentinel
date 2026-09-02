@@ -73,8 +73,10 @@ public class HistoricalValidationRunner {
         boolean invariants = observed.containsAll(item.expectedSafetyInvariants());
         boolean safe = !execution;
         String result = invariants && safe ? "PASS" : "FAIL";
-        return new HistoricalValidationReport.CaseResult(item.caseId(), item.sourceClass(), item.sourceDate(),
-                item.sourceUrl(), item.productSurface(), item.normalizedFailureClass(),
+        return new HistoricalValidationReport.CaseResult(item.caseId(), item.sourceClass(), item.sourceTitle(),
+                item.sourceDate(), item.sourceUrl(), item.productSurface(), item.paymentRail(),
+                item.providerState(), item.normalizedFailureClass(), item.normalizedFailureReason(),
+                item.expectedBehaviorClass(), item.outcomeKnown(),
                 item.expectedSafetyInvariants(), List.copyOf(observed), result, safe, execution,
                 false, false, true, 12 + item.caseId().hashCode() % 7,
                 disposition.name(), "HISTORICAL-SOURCE-DERIVED REPLAY");

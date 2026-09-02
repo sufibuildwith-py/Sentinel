@@ -25,6 +25,7 @@ import com.sentinel.revenue.webhook.InvalidWebhookSignatureException;
 import com.sentinel.revenue.webhook.InvalidWebhookSignatureBadRequestException;
 import com.sentinel.core.observability.RequestContext;
 import com.sentinel.core.ratelimit.RateLimitExceededException;
+import com.sentinel.revenue.execution.RecoveryExecutionUnavailableException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
@@ -154,6 +155,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ApiError error = new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), code,
                 message, requestId(), path, violations);
         return ResponseEntity.status(status).body(error);
+    }
+
+    @ExceptionHandler(RecoveryExecutionUnavailableException.class)
+    ResponseEntity<Object> handleRecoveryExecutionUnavailable(RecoveryExecutionUnavailableException exception,
+                                                               HttpServletRequest request) {
+        log.info("Recovery execution unavailable: {}", exception.getReasonCode());
+        return response(HttpStatus.UNPROCESSABLE_ENTITY, exception.getReasonCode(), exception.getMessage(),
+                request.getRequestURI(), List.of());
     }
 
     @ExceptionHandler(InvalidWebhookSignatureBadRequestException.class)

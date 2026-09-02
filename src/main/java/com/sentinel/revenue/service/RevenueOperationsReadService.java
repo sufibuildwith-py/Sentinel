@@ -5,6 +5,8 @@ import com.sentinel.revenue.audit.AuditTrailEntry;
 import com.sentinel.revenue.audit.AuditTrailService;
 import com.sentinel.revenue.execution.RecoveryTruth;
 import com.sentinel.revenue.execution.RecoveryTruthResolver;
+import com.sentinel.revenue.execution.RecoveryExecutionEligibility;
+import com.sentinel.revenue.execution.RecoveryExecutionEligibilityEvaluator;
 import com.sentinel.revenue.model.*;
 import com.sentinel.revenue.repository.*;
 import org.springframework.stereotype.Service;
@@ -22,16 +24,19 @@ public class RevenueOperationsReadService {
     private final RecoveryGovernorDecisionRepository governorDecisions;
     private final AuditTrailService audit;
     private final RecoveryTruthResolver truthResolver;
+    private final RecoveryExecutionEligibilityEvaluator executionEligibility;
     public RevenueOperationsReadService(RevenueIncidentRepository incidents, RecoveryPlanRepository plans,
                                         RecoveryActionRepository actions, RecoveryOutcomeRepository outcomes,
                                         IncidentFindingRepository findings,
                                         RecoveryGovernorDecisionRepository governorDecisions,
                                         AuditTrailService audit,
-                                        RecoveryTruthResolver truthResolver) {
+                                        RecoveryTruthResolver truthResolver,
+                                        RecoveryExecutionEligibilityEvaluator executionEligibility) {
         this.incidents = incidents; this.plans = plans; this.actions = actions;
         this.outcomes = outcomes; this.findings = findings; this.audit = audit;
         this.governorDecisions = governorDecisions;
         this.truthResolver = truthResolver;
+        this.executionEligibility = executionEligibility;
     }
 
     @Transactional(readOnly = true)
@@ -73,13 +78,18 @@ public class RevenueOperationsReadService {
                 truth.stage(), truth.executionMode(), truth.providerAccepted(),
                 truth.awaitingReconciliation(), truth.providerConfirmed(),
                 truth.providerConfirmedAmountMinor(), truth.basis());
+        RecoveryExecutionEligibility availability = executionEligibility.evaluate(action, plan, governorDecision);
+        IncidentDetailView.ExecutionAvailabilityView availabilityView =
+                new IncidentDetailView.ExecutionAvailabilityView(availability.enabled(), availability.eligible(),
+                        availability.reasonCode(), availability.reason());
         return new IncidentDetailView(summary(incident), safeFindings, planView, actionView,
-                governorView, truthView);
+                governorView, truthView, availabilityView);
     }
 
     @Transactional(readOnly = true)
     public List<ApprovalQueueItem> approvals() {
-        return actions.findAll().stream().filter(action -> action.getStatus() == RecoveryActionStatus.PENDING_APPROVAL)
+        return actions.findAllOperational().stream()
+                .filter(action -> action.getStatus() == RecoveryActionStatus.PENDING_APPROVAL)
                 .map(action -> {
                     RevenueIncident incident = incidents.findById(action.getIncidentId()).orElseThrow();
                     RecoveryPlan plan = plans.findById(action.getRecoveryPlanId()).orElseThrow();

@@ -2,6 +2,22 @@ import { SentinelApiError } from "./api";
 
 export type MutationContext = "reset" | "execute" | "approve" | "reject" | "generic";
 
+export interface QueryErrorPresentation { label: string; message: string; requestId?: string; }
+
+export function queryErrorPresentation(error: unknown): QueryErrorPresentation {
+  if (!(error instanceof SentinelApiError)) {
+    return error instanceof TypeError
+      ? { label: "Backend unreachable", message: "Sentinel could not reach the configured API." }
+      : { label: "Data unavailable", message: "The requested data could not be loaded." };
+  }
+  const requestId = error.requestId;
+  if (error.status === 404) return { label: "Endpoint not found", message: "This console build requested an API route the backend does not expose.", requestId };
+  if (error.status === 408 || error.status === 504) return { label: "Request timed out", message: "The backend did not answer within the allowed time.", requestId };
+  if (error.status >= 500) return { label: "Server error", message: "The backend rejected this data request. Persisted state was not changed.", requestId };
+  if (error.status === 422) return { label: "Schema or state mismatch", message: error.message || "The response could not be applied to the current state.", requestId };
+  return { label: "Data unavailable", message: error.message || `Sentinel API returned ${error.status}.`, requestId };
+}
+
 export function mutationErrorMessage(error: unknown, context: MutationContext = "generic"): string {
   if (!(error instanceof SentinelApiError)) {
     return error instanceof TypeError

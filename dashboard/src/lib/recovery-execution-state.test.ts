@@ -69,6 +69,25 @@ describe("normalized persisted recovery execution state", () => {
     expect(derivePipelineStages(refreshed).find((stage) => stage.label === "Governor")?.state).toBe("BLOCKED");
   });
 
+  it("does not offer execution when the connected backend has Test Mode execution disabled", () => {
+    const disabled = {
+      ...approvedHuman,
+      executionAvailability: {
+        enabled: false,
+        eligible: false,
+        reasonCode: "RAZORPAY_EXECUTION_DISABLED",
+        reason: "Razorpay Test Mode execution is disabled in this backend deployment",
+      },
+    };
+
+    expect(derivePrimaryRecoveryAction(normalizeRecoveryExecution(disabled, approvedAudit))).toMatchObject({
+      kind: "UNSUPPORTED",
+      operation: null,
+      executable: false,
+      label: "Test Mode execution disabled",
+    });
+  });
+
   it("resumes from the first incomplete persisted stage without replaying completed work", () => {
     expect(nextRecoveryOperation(approvedHuman, approvedAudit)).toBe("execute");
     const accepted: IncidentDetail = {
