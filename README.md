@@ -112,7 +112,7 @@ Copy `.env.example` and supply values through a secret manager or local environm
 |---|---|---|
 | `SENTINEL_DB_URL` | — | PostgreSQL JDBC URL |
 | `SENTINEL_DB_USERNAME` / `SENTINEL_DB_PASSWORD` | — | Database credentials |
-| `RAZORPAY_ENABLED` | `false` | Enables Test Mode provider calls |
+| `RAZORPAY_ENABLED` | `true` | Enables Test Mode provider calls |
 | `RAZORPAY_KEY_ID` | — | Must start with `rzp_test_` |
 | `RAZORPAY_KEY_SECRET` | — | Read only by the provider adapter |
 | `RAZORPAY_WEBHOOK_SECRET` | — | HMAC verification secret |
